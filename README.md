@@ -1,0 +1,2 @@
+# Joodit
+A text editor.
