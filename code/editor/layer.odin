@@ -1,5 +1,6 @@
 package layer
 
+import "../events"
 import "../platform"
 
 import "core:log"
@@ -18,6 +19,11 @@ layer_on_attach :: proc(data: rawptr, app: ^platform.App) {
 layer_on_detach :: proc(data: rawptr, app: ^platform.App) {
 	editor := transmute(^Layer)data
 	log.debug("On Detach!")
+}
+
+layer_on_event :: proc(data: rawptr, e: ^events.Event, app: ^platform.App) {
+	editor := transmute(^Layer)data
+	
 }
 
 layer_on_update :: proc(data: rawptr, app: ^platform.App) {
