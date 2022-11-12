@@ -12,14 +12,14 @@ main :: proc() {
 	app := new(platform.App)
 	platform.app_init(app, "Jedit", 1920, 1080)
 	defer platform.app_shutdown(app)
-	
 
 	platform.app_push_layer(app, 
 							new(editor.Layer),
 							editor.layer_on_attach,
 							editor.layer_on_detach,
 							editor.layer_on_update,
-							editor.layer_on_render)
+							editor.layer_on_render,
+							editor.layer_on_event)
 
 	for layer in app.layers {
 		layer.on_attach(layer.data, app)
