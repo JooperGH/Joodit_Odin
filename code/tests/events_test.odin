@@ -11,8 +11,8 @@ test_base_event :: proc(e: events.Event, category: bit_set[events.Event_Category
 
 @(test)
 test_event_creation :: proc(t: ^testing.T) {
-    event := events.app_update(0)
+    event := events.app_update_start(0)
     testing.expect(t, test_base_event(event, {events.Event_Category.App}))
-    event = events.app_render(0)
+    event = events.app_render_start(0)
     testing.expect(t, test_base_event(event, {events.Event_Category.App}))
 }
