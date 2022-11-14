@@ -4,9 +4,9 @@ import "../events"
 
 Layer :: struct {
     data: rawptr,
-	on_attach: proc(data: rawptr, app: ^App),
-	on_detach: proc(data: rawptr, app: ^App),
-	on_update: proc(data: rawptr, app: ^App),
-	on_render: proc(data: rawptr, app: ^App),
-	on_event: proc(data: rawptr, e: ^events.Event, app: ^App),
+	on_attach: proc(rawptr, ^App),
+	on_detach: proc(rawptr, ^App),
+	on_update: proc(rawptr, ^App),
+	on_render: proc(rawptr, ^App),
+	on_event: proc(rawptr, ^App, ^events.Event),
 }
