@@ -31,13 +31,7 @@ jobs:
             git clone https://github.com/odin-lang/Odin
             pushd Odin
             make
-            pushd vendor/stb
-            make
-            popd
-            pushd vendor/glfw
-            make
-            popd
-            pushd vendor/OpenGL
+            pushd vendor/stb/src
             make
             popd
             popd
