@@ -27,29 +27,19 @@ jobs:
       - name: Install dependencies
         run: |
             sudo apt update
-            sudo apt-get install libglfw3
-            sudo apt-get install libglfw3-dev
-            
-      # Runs a single command using the runners shell
-      - name: Build Odin
-        run: |
-          git clone https://github.com/odin-lang/Odin
-          cd Odin
-          make
-          cd ..
-          git clone https://github.com/vassvik/odin-stb.git
-          cd odin-stb
-          mkdir lib
-          cd src
-          make
-          cd ..
-          cd ..
+            sudo apt-get install build-essential libglfw3 libglfw3-dev
+            git clone https://github.com/odin-lang/Odin
+            pushd Odin
+            make
+            odin build vendor/stb
+            odin build vendor/glfw
+            odin build vendor/OpenGL
+            popd
 
-      # Runs a set of commands using the runners shell
       - name: Build
         run: |
           mkdir build
-          ./Odin/odin build code -out:build/joodit.exe -o:minimal -show-timings -build-mode:exe -debug
+          ./Odin/odin build code -out:build/joodit.exe -strict-style -debug
           
       - name: Test
         run: |
