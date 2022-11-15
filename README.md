@@ -4,7 +4,7 @@
    The Text Editor playground.
     <br/>
     <br/>
-    <a href="https://github.com/odin-lang/odin/releases/latest">
+    <a href="https://github.com/JooperGH/Joodit/releases/latest">
         <img src="https://img.shields.io/badge/platforms-Windows%20|%20Linux%20|%20macOS-green.svg">
     </a>
     <br>
