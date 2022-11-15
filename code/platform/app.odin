@@ -166,7 +166,6 @@ on_window_moved :: proc(data: rawptr, app: ^App, e: ^events.Event) -> b32 {
 }
 
 on_window_focus :: proc(data: rawptr, app: ^App, e: ^events.Event) -> b32 {
-    fmt.println(e)
     return true
 }
 

@@ -47,8 +47,8 @@ font_load :: proc(font: ^^Font, app: ^platform.App, path: string, size: i32, atl
 		log.debug("Font load request at ", platform.app_time())
     } else {
         log.error("Trying to load already loaded font.")
+        return
     }
-
     
     font^ = new(Font)
     font^.load_state = .Queued
@@ -70,12 +70,16 @@ font_load_task :: proc(task: thread.Task) {
     if ok {
         font := task_data.font^
         font.size = task_data.size
+        
+        fontinfo := stbtt.fontinfo{}
+        if !stbtt.InitFont(&fontinfo, &data[0], 0) {
+            log.error("Failed to load font ", task_data.path, ".")
+            return
+        }
+        
         font.texture = new(Texture, context.allocator)
         texture_init(font.texture, task_data.atlas_width, task_data.atlas_height, Texture_Format.Alpha)
 
-        fontinfo := stbtt.fontinfo{}
-        stbtt.InitFont(&fontinfo, &data[0], 0)
- 
         scale : f32 = stbtt.ScaleForPixelHeight(&fontinfo, f32(font.size))
         padding : i32 = 5
         pixel_dist_scale : f32 = f32(180)/f32(padding)
@@ -146,13 +150,16 @@ font_load_task :: proc(task: thread.Task) {
         }
 
         for i : i32 = 0; i < num_glyphs; i += 1 {
-            //glyph := &glyphs[i]
+            glyph := &glyphs[i]
 
-           //for y : i32 = glyph.rect.y; y < glyph.rect.y+glyph.rect.h; y += 1 {
-           //    for x : i32 = glyph.rect.x; y < glyph.rect.x+glyph.rect.w; x += 1 {
-           //        //font.texture.data[x + font.texture.w * y] = glyph.bitmap[(x - glyph.rect.x) + glyph.rect.w * (y - glyph.rect.y)]
-           //    }        
-           //}
+            if glyph.rect.w != 0 && glyph.rect.h != 0 {
+                for y : i32 = 0; y < glyph.rect.h; y += 1 {
+                    for x: i32 = 0; x < glyph.rect.w; x += 1 {
+                        src := glyph.bitmap[x + glyph.rect.w * y]
+                        font.texture.data[(glyph.rect.x + x) + font.texture.w * (glyph.rect.y + y)] = src
+                    }   
+                }    
+            }
         }
         
         for glyph in glyphs {
@@ -161,6 +168,7 @@ font_load_task :: proc(task: thread.Task) {
         delete(glyphs)
 
         font.load_state = .Loaded_And_Not_Uploaded
+		log.debug("Font load request succeeded at ", platform.app_time())
     }
 
     free(task_data, context.allocator)

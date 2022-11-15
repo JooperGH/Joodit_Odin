@@ -52,9 +52,7 @@ layer_on_event :: proc(data: rawptr, app: ^platform.App, e: ^events.Event) {
 layer_on_update :: proc(data: rawptr, app: ^platform.App) {
 	editor := cast(^Layer)data
 
-	if assets.font_validate(editor.font) {
-		log.debug(editor.font.load_state)
-	} 
+	assets.font_validate(editor.font)
 }
 
 layer_on_render :: proc(data: rawptr, app: ^platform.App) {
