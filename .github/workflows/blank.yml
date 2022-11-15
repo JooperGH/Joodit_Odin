@@ -37,6 +37,13 @@ jobs:
           cd Odin
           make
           cd ..
+          git clone https://github.com/vassvik/odin-stb.git
+          cd odin-stb
+          mkdir lib
+          cd src
+          make
+          cd ..
+          cd ..
 
       # Runs a set of commands using the runners shell
       - name: Build
