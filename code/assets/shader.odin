@@ -42,8 +42,10 @@ shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring) {
 }
 
 shader_free :: proc(shader: ^Shader) {
-    gl.DeleteProgram(shader.id)
-    free(shader)
+    if shader != nil {
+        gl.DeleteProgram(shader.id)
+        free(shader)
+    }
 }
 
 @(private)

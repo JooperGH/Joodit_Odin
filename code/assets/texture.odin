@@ -61,10 +61,12 @@ texture_init :: proc(texture: ^Texture, w, h: i32, format: Texture_Format) {
 }
 
 texture_free :: proc(texture: ^Texture) {
-    delete(texture.data)
-    gl.DeleteTextures(1, cast(^u32)&texture.handle)
-    texture.load_state = .Unloaded
-    free(texture)
+    if texture != nil {
+        delete(texture.data)
+        gl.DeleteTextures(1, cast(^u32)&texture.handle)
+        texture.load_state = .Unloaded
+        free(texture)
+    }
 }
 
 texture_upload :: proc(texture: ^Texture) {

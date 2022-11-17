@@ -162,7 +162,9 @@ font_load_task :: proc(task: thread.Task) {
                 }    
             }
         }
-        
+
+        delete(data)
+
         for glyph in glyphs {
             stbtt.FreeSDF(glyph.bitmap, nil)
         }  
@@ -201,7 +203,9 @@ font_validate :: proc(font: ^Font) -> b32 {
 }
 
 font_free :: proc(font: ^Font) {
-    texture_free(font.texture)
+    if font != nil {
+        texture_free(font.texture)
+    }
 }
 
 @(private)
