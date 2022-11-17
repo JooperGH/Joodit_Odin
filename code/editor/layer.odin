@@ -15,6 +15,7 @@ Layer :: struct {
 	using layer: platform.Layer,
 
 	font: ^assets.Font,
+	shader: ^assets.Shader,
 }
 
 layer_on_attach :: proc(data: rawptr, app: ^platform.App) {
@@ -23,7 +24,7 @@ layer_on_attach :: proc(data: rawptr, app: ^platform.App) {
 
 layer_on_detach :: proc(data: rawptr, app: ^platform.App) {
 	editor := cast(^Layer)data
-	free(editor.font)
+	assets.font_free(editor.font)
 	free(editor)
 }
 
@@ -38,6 +39,7 @@ on_key_pressed :: proc(data: rawptr, app: ^platform.App, e: ^events.Event) -> b3
 
 	if kp.key_code == glfw.KEY_P {
 		assets.font_load(&editor.font, app, "fonts/OpenSans-Regular.ttf", 20)
+		assets.shader_load(&editor.shader, app, "shaders/default.glsl")
 	}
 	
 	return false
@@ -53,6 +55,7 @@ layer_on_update :: proc(data: rawptr, app: ^platform.App) {
 	editor := cast(^Layer)data
 
 	assets.font_validate(editor.font)
+	assets.shader_validate(editor.shader)
 }
 
 layer_on_render :: proc(data: rawptr, app: ^platform.App) {

@@ -43,12 +43,13 @@ Font_Builder_Glyph_Bitmap :: struct {
 Font_Builder_Glyph_Range :: [2]i32
 
 font_load :: proc(font: ^^Font, app: ^platform.App, path: string, size: i32, atlas_width: i32 = 2048, atlas_height: i32 = 2048){
-    if font^ == nil {
-		log.debug("Font load request at ", platform.app_time())
-    } else {
-        log.error("Trying to load already loaded font.")
+    if !check_load_state(cast(rawptr)font^, Font, proc(data: rawptr) {
+        font_free(cast(^Font)data)
+    }) {
         return
     }
+
+    log.debug("Font load request at ", platform.app_time())
     
     font^ = new(Font)
     font^.load_state = .Queued
@@ -169,6 +170,8 @@ font_load_task :: proc(task: thread.Task) {
 
         font.load_state = .Loaded_And_Not_Uploaded
 		log.debug("Font load request succeeded at ", platform.app_time())
+    } else {
+        task_data.font^.load_state = .Invalid
     }
 
     free(task_data, context.allocator)
@@ -178,6 +181,8 @@ font_validate :: proc(font: ^Font) -> b32 {
     if font == nil {
         return false
     }
+
+    if font.load_state == .Invalid do return false
 
     if font.load_state == .Unloaded || font.load_state == .Queued {
         return false
