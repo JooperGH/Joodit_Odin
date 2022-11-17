@@ -14,6 +14,9 @@ Shader :: struct {
     path: string,
     src: string,
 
+    uniform_names: [dynamic]string,
+    uniform_locs: map[string]i32,
+
     id: renderer.GPU_Handle,
     load_state: Load_State,
 }
@@ -41,8 +44,17 @@ shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring) {
     platform.app_push_task(app, shader_load_task, cast(rawptr)data)    
 }
 
+shader_bind :: proc(shader: ^Shader) {
+    gl.UseProgram(shader.id)
+}
+
+shader_unbind :: proc(shader: ^Shader) {
+    gl.UseProgram(0)
+}
+
 shader_free :: proc(shader: ^Shader) {
     if shader != nil {
+        delete(shader.uniform_locs)
         gl.DeleteProgram(shader.id)
         free(shader)
     }
@@ -120,6 +132,12 @@ shader_upload :: proc(shader: ^Shader) {
     gl.DeleteShader(fs)
     
     if success != 0 {
+        shader.uniform_locs = make(map[string]i32)
+        for name in shader.uniform_names {
+            shader.uniform_locs[name] = gl.GetUniformLocation(id, strings.clone_to_cstring(name, context.temp_allocator))
+        }
+        delete(shader.uniform_names)
+
         shader.id = id
         shader.load_state = .Loaded_And_Uploaded
     } else {
@@ -151,6 +169,27 @@ shader_validate_data :: proc(shader: ^Shader) -> b32 {
 }
 
 @(private)
+shader_preprocess_uniform_names :: proc(shader: ^Shader, src: string) {
+    if shader.uniform_names == nil {
+        shader.uniform_names = make([dynamic]string)
+    }
+
+    cs := src
+    at_next := strings.index(cs, "uniform")
+    for at_next != -1 {
+        cs = cs[at_next:]
+        at_endl := strings.index(cs, ";")
+        line := cs[:at_endl]
+        split := strings.split(line, " ", context.temp_allocator)
+        append(&shader.uniform_names, strings.clone_from(split[2]))
+
+        cs = cs[at_endl:]
+        at_next = strings.index(cs, "uniform")
+    }
+
+}
+
+@(private)
 shader_preprocess :: proc(shader: ^Shader, srcs: ^[2]string) -> b32 {
     src := strings.clone(shader.src, context.temp_allocator)
     
@@ -163,6 +202,10 @@ shader_preprocess :: proc(shader: ^Shader, srcs: ^[2]string) -> b32 {
 
         vs_src := shader.src[offset_to_vs:offset_pre_fs]
         fs_src := shader.src[offset_to_fs:]
+
+        shader_preprocess_uniform_names(shader, vs_src)
+        shader_preprocess_uniform_names(shader, fs_src)
+        fmt.println(shader.uniform_names)
 
         srcs^[0] = strings.clone(vs_src, context.temp_allocator)
         srcs^[1] = strings.clone(fs_src, context.temp_allocator)
