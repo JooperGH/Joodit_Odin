@@ -42,13 +42,14 @@ _main :: proc() {
 	for platform.app_running(app) {
 		platform.app_begin_frame(app)
 
+		gl.ClearColor(0.1, 0.1, 0.1, 1.0)
+		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
+		
 		for i := 0; i < len(app.layers); i += 1 {
 			layer := app.layers[i]
 			layer.on_update(layer.data, app)
 		}
 
-		gl.ClearColor(0.1, 0.1, 0.1, 1.0)
-		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 		for i := len(app.layers)-1; i >= 0; i -= 1 {
 			layer := app.layers[i]
 			layer.on_render(layer.data, app)

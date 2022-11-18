@@ -6,6 +6,7 @@ import "core:os"
 import "core:thread"
 import "core:strings"
 import gl "vendor:OpenGL"
+import la "core:math/linalg/glsl"
 
 import "../renderer"
 import "../platform"
@@ -52,31 +53,59 @@ shader_unbind :: proc(shader: ^Shader) {
     gl.UseProgram(0)
 }
 
+shader_set :: proc{shader_set_i32, 
+                   shader_set_u32, 
+                   shader_set_f32,
+                   shader_set_vec2,
+                   shader_set_vec3,
+                   shader_set_vec4,
+                   shader_set_mat4}
+
+shader_set_i32 :: proc(shader: ^Shader, name: cstring, value: i32) {
+    loc := shader.uniform_locs[strings.clone_from_cstring(name, context.temp_allocator)]
+    gl.Uniform1i(loc, value)
+}
+
+shader_set_u32 :: proc(shader: ^Shader, name: cstring, value: u32) {
+    loc := shader.uniform_locs[strings.clone_from_cstring(name, context.temp_allocator)]
+    gl.Uniform1ui(loc, value)
+}
+
+shader_set_f32 :: proc(shader: ^Shader, name: cstring, value: f32) {
+    loc := shader.uniform_locs[strings.clone_from_cstring(name, context.temp_allocator)]
+    gl.Uniform1f(loc, value)
+}
+
+shader_set_vec2 :: proc(shader: ^Shader, name: cstring, value: ^la.vec2) {
+    using la
+    loc := shader.uniform_locs[strings.clone_from_cstring(name, context.temp_allocator)]
+    gl.Uniform2fv(loc, 1, &value[0])
+}
+
+shader_set_vec3 :: proc(shader: ^Shader, name: cstring, value: ^la.vec3) {
+    using la
+    loc := shader.uniform_locs[strings.clone_from_cstring(name, context.temp_allocator)]
+    gl.Uniform3fv(loc, 1, &value[0])
+}
+
+shader_set_vec4 :: proc(shader: ^Shader, name: cstring, value: ^la.vec4) {
+    using la
+    loc := shader.uniform_locs[strings.clone_from_cstring(name, context.temp_allocator)]
+    gl.Uniform4fv(loc, 1, &value[0])
+}
+
+shader_set_mat4 :: proc(shader: ^Shader, name: cstring, value: ^la.mat4) {
+    using la
+    loc := shader.uniform_locs[strings.clone_from_cstring(name, context.temp_allocator)]
+    gl.UniformMatrix4fv(loc, 1, gl.FALSE, &value[0,0])
+}
+
 shader_free :: proc(shader: ^Shader) {
     if shader != nil {
         delete(shader.uniform_locs)
         gl.DeleteProgram(shader.id)
         free(shader)
     }
-}
-
-@(private)
-shader_load_task :: proc(task: thread.Task) {
-    task_data := cast(^Shader_Load_Task_Data)task.data
-
-    src, ok := os.read_entire_file_from_filename(string(task_data.path), context.allocator)
-    
-    if ok  {
-        shader := task_data.shader^
-        shader.path = string(task_data.path)
-        shader.src = strings.string_from_nul_terminated_ptr(&src[0], len(src))
-        shader.load_state = .Loaded_And_Not_Uploaded
-        log.debug("Shader load request succeeded at ", platform.app_time())
-    } else {
-        task_data.shader^.load_state = .Invalid
-    }
-
-    free(task_data, context.allocator)
 }
 
 shader_upload :: proc(shader: ^Shader) {
@@ -164,6 +193,25 @@ shader_validate :: proc(shader: ^Shader) -> b32 {
 }
 
 @(private)
+shader_load_task :: proc(task: thread.Task) {
+    task_data := cast(^Shader_Load_Task_Data)task.data
+
+    src, ok := os.read_entire_file_from_filename(string(task_data.path), context.allocator)
+    
+    if ok  {
+        shader := task_data.shader^
+        shader.path = string(task_data.path)
+        shader.src = strings.string_from_nul_terminated_ptr(&src[0], len(src))
+        shader.load_state = .Loaded_And_Not_Uploaded
+        log.debug("Shader load request succeeded at ", platform.app_time())
+    } else {
+        task_data.shader^.load_state = .Invalid
+    }
+
+    free(task_data, context.allocator)
+}
+
+@(private)
 shader_validate_data :: proc(shader: ^Shader) -> b32 {
     return len(shader.src) != 0
 }
@@ -186,7 +234,6 @@ shader_preprocess_uniform_names :: proc(shader: ^Shader, src: string) {
         cs = cs[at_endl:]
         at_next = strings.index(cs, "uniform")
     }
-
 }
 
 @(private)
@@ -205,7 +252,6 @@ shader_preprocess :: proc(shader: ^Shader, srcs: ^[2]string) -> b32 {
 
         shader_preprocess_uniform_names(shader, vs_src)
         shader_preprocess_uniform_names(shader, fs_src)
-        fmt.println(shader.uniform_names)
 
         srcs^[0] = strings.clone(vs_src, context.temp_allocator)
         srcs^[1] = strings.clone(fs_src, context.temp_allocator)
