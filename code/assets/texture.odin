@@ -34,13 +34,14 @@ Texture_Load_Task_Data :: struct {
 }
 
 texture_load :: proc(texture: ^^Texture, app: ^platform.App, path: string ) {
-    if texture^ == nil {
-		log.debug("Font load request at ", platform.app_time())
-    } else {
-        log.error("Trying to load already loaded font.")
+    if !check_load_state(cast(rawptr)texture^, Texture, proc(data: rawptr) {
+        texture_free(cast(^Texture)data)
+    }) {
         return
     }
-
+    
+    log.debug("Font load request at ", platform.app_time())
+    
     texture^ = new(Texture, context.allocator)
     texture^.load_state = .Queued
 
@@ -60,14 +61,17 @@ texture_init :: proc(texture: ^Texture, w, h: i32, format: Texture_Format) {
 }
 
 texture_free :: proc(texture: ^Texture) {
-    delete(texture.data)
-    gl.DeleteTextures(1, cast(^u32)&texture.handle)
-    free(texture)
+    if texture != nil {
+        delete(texture.data)
+        gl.DeleteTextures(1, cast(^u32)&texture.handle)
+        texture.load_state = .Unloaded
+        free(texture)
+    }
 }
 
 texture_upload :: proc(texture: ^Texture) {
     if !texture_validate_data(texture) {
-        //log.error("Attempted to upload texture to GPU but data is not valid.")
+        log.error("Attempted to upload texture to GPU but data is not valid.")
         return
     }
 
@@ -98,6 +102,8 @@ texture_validate :: proc(texture: ^Texture) -> b32 {
         return false
     }
 
+    if texture.load_state == .Invalid do return false
+
     if texture.load_state == .Unloaded || texture.load_state == .Queued {
         return false
     }
@@ -127,6 +133,8 @@ texture_load_task :: proc(task: thread.Task) {
         texture.h = h
         texture.format = texture_format_from_bpp(bpp)
         texture.load_state = .Loaded_And_Not_Uploaded
+    } else {
+        task_data.texture^.load_state = .Invalid
     }
 
     free(task_data, context.allocator)

@@ -1,6 +1,6 @@
 package renderer
 
-GPU_Handle :: distinct u32
+GPU_Handle :: u32
 
 gl_renderer := Batch_Renderer{}
 
