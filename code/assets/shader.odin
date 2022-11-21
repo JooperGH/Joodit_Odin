@@ -18,7 +18,7 @@ Shader :: struct {
     uniform_names: [dynamic]string,
     uniform_locs: map[string]i32,
 
-    id: renderer.GPU_Handle,
+    handle: renderer.GPU_Handle,
     load_state: Load_State,
 }
 
@@ -46,7 +46,7 @@ shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring) {
 }
 
 shader_bind :: proc(shader: ^Shader) {
-    gl.UseProgram(shader.id)
+    gl.UseProgram(shader.handle)
 }
 
 shader_unbind :: proc(shader: ^Shader) {
@@ -103,7 +103,7 @@ shader_set_mat4 :: proc(shader: ^Shader, name: cstring, value: ^la.mat4) {
 shader_free :: proc(shader: ^Shader) {
     if shader != nil {
         delete(shader.uniform_locs)
-        gl.DeleteProgram(shader.id)
+        gl.DeleteProgram(shader.handle)
         free(shader)
     }
 }
@@ -167,7 +167,7 @@ shader_upload :: proc(shader: ^Shader) {
         }
         delete(shader.uniform_names)
 
-        shader.id = id
+        shader.handle = id
         shader.load_state = .Loaded_And_Uploaded
     } else {
         gl.DeleteProgram(id)

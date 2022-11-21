@@ -9,7 +9,6 @@ import "vendor:glfw"
 import gl "vendor:OpenGL"
 
 import "platform"
-import "editor"
 import "renderer"
 
 _main :: proc() {
@@ -20,12 +19,12 @@ _main :: proc() {
 	renderer.init()
 
 	platform.app_push_layer(app, 
-							new(editor.Layer),
-							editor.layer_on_attach,
-							editor.layer_on_detach,
-							editor.layer_on_update,
-							editor.layer_on_render,
-							editor.layer_on_event)
+							new(Layer),
+							layer_on_attach,
+							layer_on_detach,
+							layer_on_update,
+							layer_on_render,
+						    layer_on_event)
 
 	for layer in app.layers {
 		layer.on_attach(layer.data, app)

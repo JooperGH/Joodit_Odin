@@ -88,6 +88,10 @@ app_push_task :: proc(app: ^App, procedure: thread.Task_Proc, data: rawptr) {
     thread.pool_add_task(&app.pool, context.allocator, procedure, data)
 }
 
+app_finish_tasks :: proc(app: ^App) {
+    thread.pool_finish(&app.pool)
+}
+
 app_shutdown :: proc(app: ^App) {
     thread.pool_join(&app.pool)
     thread.pool_destroy(&app.pool)

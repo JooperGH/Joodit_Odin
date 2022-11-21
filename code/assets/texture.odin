@@ -51,6 +51,12 @@ texture_load :: proc(texture: ^^Texture, app: ^platform.App, path: string ) {
     platform.app_push_task(app, texture_load_task, cast(rawptr)data)
 }
 
+texture_create :: proc(w, h: i32, format: Texture_Format) -> ^Texture {
+    result := new(Texture)
+    texture_init(result, w, h, format)
+    return result 
+}
+
 texture_init :: proc(texture: ^Texture, w, h: i32, format: Texture_Format) {
     texture.w = w
     texture.h = h
