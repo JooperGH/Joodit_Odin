@@ -29,7 +29,8 @@ Shader_Load_Task_Data :: struct {
 
 shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring) {
     if !check_load_state(cast(rawptr)shader^, Shader, proc(data: rawptr) {
-        shader_free(cast(^Shader)data)
+        shader := cast(^Shader)data
+        shader_free(&shader)
     }) {
         return
     }
@@ -51,6 +52,13 @@ shader_bind :: proc(shader: ^Shader) {
 
 shader_unbind :: proc(shader: ^Shader) {
     gl.UseProgram(0)
+}
+
+shader_reload :: proc(shader: ^^Shader, app: ^platform.App) {
+    log.debug("Shader reload request at ", platform.app_time())
+    path := strings.clone_to_cstring(shader^.path, context.temp_allocator)
+    shader_free(shader)
+    shader_load(shader, app, path)
 }
 
 shader_set :: proc{shader_set_i32, 
@@ -100,11 +108,12 @@ shader_set_mat4 :: proc(shader: ^Shader, name: cstring, value: ^la.mat4) {
     gl.UniformMatrix4fv(loc, 1, gl.FALSE, &value[0,0])
 }
 
-shader_free :: proc(shader: ^Shader) {
-    if shader != nil {
-        delete(shader.uniform_locs)
-        gl.DeleteProgram(shader.handle)
-        free(shader)
+shader_free :: proc(shader: ^^Shader) {
+    if shader^ != nil {
+        delete(shader^.uniform_locs)
+        gl.DeleteProgram(shader^.handle)
+        free(shader^)
+        shader^ = nil
     }
 }
 

@@ -50,7 +50,8 @@ Font_Glyph_Range_Default :: []Font_Glyph_Range{Font_Glyph_Range_Latin, Font_Glyp
 
 font_load :: proc(font: ^^Font, app: ^platform.App, path: string, size: i32, ranges: []Font_Glyph_Range, atlas_width: i32 = 2048, atlas_height: i32 = 2048){
     if !check_load_state(cast(rawptr)font^, Font, proc(data: rawptr) {
-        font_free(cast(^Font)data)
+        font := cast(^Font)data
+        font_free(&font)
     }) {
         return
     }
@@ -89,7 +90,7 @@ font_load_task :: proc(task: thread.Task) {
         }
 
         scale : f32 = stbtt.ScaleForPixelHeight(&fontinfo, f32(font.size))
-        padding : i32 = 2
+        padding : i32 = 5
         pixel_dist_scale : f32 = f32(180)/f32(padding)
 
         g := 0
@@ -201,14 +202,15 @@ font_validate :: proc(font: ^Font) -> b32 {
     return false
 }
 
-font_free :: proc(font: ^Font) {
-    if font != nil {
-        texture_free(font.texture)
+font_free :: proc(font: ^^Font) {
+    if font^ != nil {
+        texture_free(&font^.texture)
 
-        delete(font.ranges)
-        delete(font.glyphs)
+        delete(font^.ranges)
+        delete(font^.glyphs)
 
-        free(font)
+        free(font^)
+        font^ = nil
     }
 }
 

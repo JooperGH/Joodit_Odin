@@ -35,7 +35,8 @@ Texture_Load_Task_Data :: struct {
 
 texture_load :: proc(texture: ^^Texture, app: ^platform.App, path: string ) {
     if !check_load_state(cast(rawptr)texture^, Texture, proc(data: rawptr) {
-        texture_free(cast(^Texture)data)
+        texture := cast(^Texture)data
+        texture_free(&texture)
     }) {
         return
     }
@@ -66,12 +67,13 @@ texture_init :: proc(texture: ^Texture, w, h: i32, format: Texture_Format) {
     texture.load_state = .Loaded_And_Not_Uploaded
 }
 
-texture_free :: proc(texture: ^Texture) {
-    if texture != nil {
-        delete(texture.data)
-        gl.DeleteTextures(1, cast(^u32)&texture.handle)
-        texture.load_state = .Unloaded
-        free(texture)
+texture_free :: proc(texture: ^^Texture) {
+    if texture^ != nil {
+        delete(texture^.data)
+        gl.DeleteTextures(1, cast(^u32)&(texture^).handle)
+        texture^.load_state = .Unloaded
+        free(texture^)
+        texture^ = nil
     }
 }
 
@@ -89,14 +91,12 @@ texture_upload :: proc(texture: ^Texture) {
     gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR)
     gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
     
-    gl_format := u32(gl.RGBA)
     switch texture.format {
-        case .Alpha: gl_format = gl.RED
-        case .RGB: gl_format = gl.RGB
-        case .RGBA: gl_format = gl.RGBA
+        case .Alpha: gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texture.w, texture.h, 0, gl.RED, gl.UNSIGNED_BYTE, cast(rawptr)&texture.data[0])
+        case .RGB:  gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texture.w, texture.h, 0, gl.RGB, gl.UNSIGNED_BYTE, cast(rawptr)&texture.data[0])
+        case .RGBA: gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texture.w, texture.h, 0, gl.RGBA, gl.UNSIGNED_BYTE, cast(rawptr)&texture.data[0])
     }
 
-    gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA, texture.w, texture.h, 0, gl_format, gl.UNSIGNED_BYTE, cast(rawptr)&texture.data[0])
     gl.GenerateMipmap(gl.TEXTURE_2D)
 
     texture.handle = renderer.GPU_Handle(handle)

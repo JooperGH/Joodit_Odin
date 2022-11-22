@@ -43,7 +43,9 @@ _main :: proc() {
 
 		gl.ClearColor(0.1, 0.1, 0.1, 1.0)
 		gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
-		
+		gl.Enable(gl.BLEND)
+		gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)  
+
 		for i := 0; i < len(app.layers); i += 1 {
 			layer := app.layers[i]
 			layer.on_update(layer.data, app)
