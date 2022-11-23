@@ -46,8 +46,7 @@ app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720)
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, gl_minor)
 	glfw.WindowHint(glfw.OPENGL_PROFILE, glfw.OPENGL_CORE_PROFILE)
     glfw.WindowHint(glfw.DOUBLEBUFFER, 1)
-    glfw.WindowHint(glfw.DEPTH_BITS, 24)
-    glfw.WindowHint(glfw.STENCIL_BITS, 8)
+    glfw.WindowHint(glfw.SAMPLES, 4)
 
 	if glfw.Init() != 1 {
 		log.error("Failed to initialize GLFW.")
@@ -55,7 +54,7 @@ app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720)
 	}
     
     log.debug(log.Level.Debug, "Creating window...")
-	app.window = glfw.CreateWindow(app.width, app.height, strings.clone_to_cstring(app.title), nil, nil)
+	app.window = glfw.CreateWindow(app.width, app.height, strings.clone_to_cstring(app.title, context.temp_allocator), nil, nil)
     if app.window == nil {
 		log.error("Failed to create window.")
 		return
@@ -88,7 +87,17 @@ app_push_task :: proc(app: ^App, procedure: thread.Task_Proc, data: rawptr) {
     thread.pool_add_task(&app.pool, context.allocator, procedure, data)
 }
 
+app_finish_tasks :: proc(app: ^App) {
+    thread.pool_finish(&app.pool)
+}
+
 app_shutdown :: proc(app: ^App) {
+    for layer in app.layers {
+        layer.on_detach(layer.data, app)
+        free(layer)
+    }
+
+    delete(app.layers)
     thread.pool_join(&app.pool)
     thread.pool_destroy(&app.pool)
     glfw.DestroyWindow(app.window)

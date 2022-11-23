@@ -5,10 +5,10 @@ import "core:fmt"
 import "core:os"
 import "core:thread"
 import "core:strings"
+import "core:strconv"
 import gl "vendor:OpenGL"
 import la "core:math/linalg/glsl"
 
-import "../renderer"
 import "../platform"
 
 Shader :: struct {
@@ -18,7 +18,7 @@ Shader :: struct {
     uniform_names: [dynamic]string,
     uniform_locs: map[string]i32,
 
-    id: renderer.GPU_Handle,
+    handle: u32,
     load_state: Load_State,
 }
 
@@ -29,7 +29,8 @@ Shader_Load_Task_Data :: struct {
 
 shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring) {
     if !check_load_state(cast(rawptr)shader^, Shader, proc(data: rawptr) {
-        shader_free(cast(^Shader)data)
+        shader := cast(^Shader)data
+        shader_free(&shader)
     }) {
         return
     }
@@ -46,11 +47,18 @@ shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring) {
 }
 
 shader_bind :: proc(shader: ^Shader) {
-    gl.UseProgram(shader.id)
+    gl.UseProgram(shader.handle)
 }
 
 shader_unbind :: proc(shader: ^Shader) {
     gl.UseProgram(0)
+}
+
+shader_reload :: proc(shader: ^^Shader, app: ^platform.App) {
+    log.debug("Shader reload request at ", platform.app_time())
+    path := strings.clone_to_cstring(shader^.path, context.temp_allocator)
+    shader_free(shader)
+    shader_load(shader, app, path)
 }
 
 shader_set :: proc{shader_set_i32, 
@@ -100,11 +108,17 @@ shader_set_mat4 :: proc(shader: ^Shader, name: cstring, value: ^la.mat4) {
     gl.UniformMatrix4fv(loc, 1, gl.FALSE, &value[0,0])
 }
 
-shader_free :: proc(shader: ^Shader) {
-    if shader != nil {
-        delete(shader.uniform_locs)
-        gl.DeleteProgram(shader.id)
-        free(shader)
+shader_free :: proc(shader: ^^Shader) {
+    if shader^ != nil {
+        for i := 0; i < len(shader^.uniform_names); i += 1 {
+            delete(shader^.uniform_names[i])
+        }
+        delete(shader^.uniform_names)
+
+        delete(shader^.uniform_locs)
+        gl.DeleteProgram(shader^.handle)
+        free(shader^)
+        shader^ = nil
     }
 }
 
@@ -165,9 +179,8 @@ shader_upload :: proc(shader: ^Shader) {
         for name in shader.uniform_names {
             shader.uniform_locs[name] = gl.GetUniformLocation(id, strings.clone_to_cstring(name, context.temp_allocator))
         }
-        delete(shader.uniform_names)
 
-        shader.id = id
+        shader.handle = id
         shader.load_state = .Loaded_And_Uploaded
     } else {
         gl.DeleteProgram(id)
@@ -229,7 +242,33 @@ shader_preprocess_uniform_names :: proc(shader: ^Shader, src: string) {
         at_endl := strings.index(cs, ";")
         line := cs[:at_endl]
         split := strings.split(line, " ", context.temp_allocator)
-        append(&shader.uniform_names, strings.clone_from(split[2]))
+
+        uniform_name := split[2]
+        open_bracket_at := strings.index(uniform_name, "[") 
+        if open_bracket_at != -1 {
+            close_bracket_at := strings.index(uniform_name, "]")
+            if close_bracket_at != 1 {
+                number_string := uniform_name[open_bracket_at+1:close_bracket_at]
+                array_size, ok := strconv.parse_int(number_string)
+                if ok {
+                    array_name := uniform_name[:open_bracket_at]
+                    for i := 0; i < array_size; i += 1 {
+                        b := strings.builder_make(context.temp_allocator)
+                        strings.write_string(&b, array_name)
+                        strings.write_string(&b, "[")
+                        strings.write_int(&b, i)
+                        strings.write_string(&b, "]")
+                        append(&shader.uniform_names, strings.clone_from(strings.to_string(b)))
+                    }
+                } else {
+                    log.error("Shader has wrong array size.")
+                    return
+                }
+            }
+        } else {
+            append(&shader.uniform_names, strings.clone_from(split[2]))
+        }
+
 
         cs = cs[at_endl:]
         at_next = strings.index(cs, "uniform")
