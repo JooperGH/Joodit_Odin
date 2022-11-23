@@ -25,7 +25,9 @@ Font :: struct {
     texture: ^Texture,
 
     ranges: []Font_Glyph_Range,
-    glyphs: map[rune]Font_Glyph, 
+    glyphs: map[rune]Font_Glyph,
+    baseline: f32,
+    line_gap: f32,
 
     load_state: Load_State,
 } 
@@ -33,12 +35,14 @@ Font :: struct {
 Font_Glyph :: struct {
     advance: f32,
     lsb: f32,
+    offset: [2]f32,
     dim: [2]f32,
     uv: [4]f32,
 }
 
 Font_Builder_Glyph :: struct {
     codepoint: rune,
+    offset: [2]i32,
     box: [4]i32,
     bitmap: [^]u8,
 }
@@ -91,7 +95,7 @@ font_load_task :: proc(task: thread.Task) {
 
         scale : f32 = stbtt.ScaleForPixelHeight(&fontinfo, f32(font.size))
         padding : i32 = 5
-        pixel_dist_scale : f32 = f32(180)/f32(padding)
+        pixel_dist_scale : f32 = f32(120)/f32(padding)
 
         g := 0
         builder_glyphs := make([]Font_Builder_Glyph, font_glyph_range_count(font.ranges))
@@ -100,7 +104,7 @@ font_load_task :: proc(task: thread.Task) {
                 builder_glyphs[g].codepoint = cast(rune)r
                 builder_glyphs[g].bitmap = stbtt.GetCodepointSDF(&fontinfo, scale, r, padding, 180, pixel_dist_scale, 
                                                      &builder_glyphs[g].box.z, &builder_glyphs[g].box.w, 
-                                                     &builder_glyphs[g].box.x, &builder_glyphs[g].box.y)
+                                                     &builder_glyphs[g].offset.x, &builder_glyphs[g].offset.y)
                 g += 1
             }
         }
@@ -143,6 +147,7 @@ font_load_task :: proc(task: thread.Task) {
             glyph := Font_Glyph{
                 f32(adv)*scale, 
                 f32(lsb)*scale,
+                [2]f32{f32(built_glyph.offset.x), f32(built_glyph.offset.y)},
                 [2]f32{f32(built_glyph.box.z), f32(built_glyph.box.w)},
                 [4]f32{
                     f32(built_glyph.box.x)/f32(font.texture.w),
@@ -162,6 +167,11 @@ font_load_task :: proc(task: thread.Task) {
                 }    
             }
         }
+
+        ascent, descent, line_gap: i32 
+        stbtt.GetFontVMetrics(&fontinfo, &ascent, &descent, &line_gap)
+        font.baseline = f32(ascent) * scale
+        font.line_gap = f32(line_gap) * scale
 
         delete(data)
 

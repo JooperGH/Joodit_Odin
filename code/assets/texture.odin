@@ -10,7 +10,6 @@ import stbi "vendor:stb/image"
 import gl "vendor:OpenGL"
 
 import "../platform"
-import "../renderer"
 
 Texture_Format :: enum {
     Alpha,
@@ -23,7 +22,7 @@ Texture :: struct {
     data: []u8,
     format: Texture_Format,
     
-    handle: renderer.GPU_Handle,
+    handle: u32,
 
     load_state: Load_State,
 } 
@@ -99,7 +98,7 @@ texture_upload :: proc(texture: ^Texture) {
 
     gl.GenerateMipmap(gl.TEXTURE_2D)
 
-    texture.handle = renderer.GPU_Handle(handle)
+    texture.handle = handle
     texture.load_state = .Loaded_And_Uploaded
 }
 
