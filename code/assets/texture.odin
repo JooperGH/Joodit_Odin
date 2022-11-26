@@ -32,7 +32,7 @@ Texture_Load_Task_Data :: struct {
     path: string,
 }
 
-texture_load :: proc(texture: ^^Texture, app: ^platform.App, path: string ) {
+texture_load :: proc(texture: ^^Texture, app: ^platform.App, path: string, threaded: bool = true) {
     if !check_load_state(cast(rawptr)texture^, Texture, proc(data: rawptr) {
         texture := cast(^Texture)data
         texture_free(&texture)
@@ -48,7 +48,16 @@ texture_load :: proc(texture: ^^Texture, app: ^platform.App, path: string ) {
     data := new(Texture_Load_Task_Data, context.allocator)
     data.texture = texture
     data.path = path
-    platform.app_push_task(app, texture_load_task, cast(rawptr)data)
+
+    if threaded {
+        platform.app_push_task(app, texture_load_task, cast(rawptr)data)
+    } else {
+        ttask := thread.Task{}
+        ttask.allocator = context.allocator
+        ttask.data = cast(rawptr)data
+        ttask.user_index = context.user_index
+        texture_load_task(ttask)
+    }
 }
 
 texture_create :: proc(w, h: i32, format: Texture_Format) -> ^Texture {
@@ -97,6 +106,7 @@ texture_upload :: proc(texture: ^Texture) {
     }
 
     gl.GenerateMipmap(gl.TEXTURE_2D)
+    gl.BindTexture(gl.TEXTURE_2D, 0)
 
     texture.handle = handle
     texture.load_state = .Loaded_And_Uploaded

@@ -27,7 +27,7 @@ Shader_Load_Task_Data :: struct {
     path: cstring,
 }
 
-shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring) {
+shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring, threaded: bool = true) {
     if !check_load_state(cast(rawptr)shader^, Shader, proc(data: rawptr) {
         shader := cast(^Shader)data
         shader_free(&shader)
@@ -43,7 +43,16 @@ shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring) {
     data := new(Shader_Load_Task_Data, context.allocator)
     data.shader = shader
     data.path = path
-    platform.app_push_task(app, shader_load_task, cast(rawptr)data)    
+    
+    if threaded {
+        platform.app_push_task(app, shader_load_task, cast(rawptr)data)    
+    } else {
+        ttask := thread.Task{}
+        ttask.allocator = context.allocator
+        ttask.data = cast(rawptr)data
+        ttask.user_index = context.user_index
+        shader_load_task(ttask)
+    }
 }
 
 shader_bind :: proc(shader: ^Shader) {
@@ -67,7 +76,8 @@ shader_set :: proc{shader_set_i32,
                    shader_set_vec2,
                    shader_set_vec3,
                    shader_set_vec4,
-                   shader_set_mat4}
+                   shader_set_mat4,
+                   shader_set_veci}
 
 shader_set_i32 :: proc(shader: ^Shader, name: cstring, value: i32) {
     loc := shader.uniform_locs[strings.clone_from_cstring(name, context.temp_allocator)]
@@ -106,6 +116,12 @@ shader_set_mat4 :: proc(shader: ^Shader, name: cstring, value: ^la.mat4) {
     using la
     loc := shader.uniform_locs[strings.clone_from_cstring(name, context.temp_allocator)]
     gl.UniformMatrix4fv(loc, 1, gl.FALSE, &value[0,0])
+}
+
+shader_set_veci :: proc(shader: ^Shader, name: cstring, value: ^[]i32) {
+    using la
+    loc := shader.uniform_locs[strings.clone_from_cstring(name, context.temp_allocator)]
+    gl.Uniform1iv(loc, i32(len(value)), &value[0])
 }
 
 shader_free :: proc(shader: ^^Shader) {
@@ -246,6 +262,11 @@ shader_preprocess_uniform_names :: proc(shader: ^Shader, src: string) {
         uniform_name := split[2]
         open_bracket_at := strings.index(uniform_name, "[") 
         if open_bracket_at != -1 {
+            // Append array name
+            append(&shader.uniform_names, strings.clone_from(uniform_name[:open_bracket_at]))
+
+            // Append sub location names
+            /*
             close_bracket_at := strings.index(uniform_name, "]")
             if close_bracket_at != 1 {
                 number_string := uniform_name[open_bracket_at+1:close_bracket_at]
@@ -265,6 +286,7 @@ shader_preprocess_uniform_names :: proc(shader: ^Shader, src: string) {
                     return
                 }
             }
+            */
         } else {
             append(&shader.uniform_names, strings.clone_from(split[2]))
         }
