@@ -1,4 +1,4 @@
-package assets
+package main
 
 import "core:log"
 import "core:fmt"
@@ -8,8 +8,6 @@ import "core:strings"
 import "core:strconv"
 import gl "vendor:OpenGL"
 import la "core:math/linalg/glsl"
-
-import "../platform"
 
 Shader :: struct {
     path: string,
@@ -27,7 +25,7 @@ Shader_Load_Task_Data :: struct {
     path: cstring,
 }
 
-shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring, threaded: bool = true) {
+shader_load :: proc(shader: ^^Shader, app: ^App, path: cstring, threaded: bool = true) {
     if !check_load_state(cast(rawptr)shader^, Shader, proc(data: rawptr) {
         shader := cast(^Shader)data
         shader_free(&shader)
@@ -35,7 +33,7 @@ shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring, threade
         return
     }
 
-    log.debug("Shader load request at ", platform.app_time())
+    log.debug("Shader load request at ", app_time())
 
     shader^ = new(Shader)
     shader^.load_state = .Queued
@@ -45,7 +43,7 @@ shader_load :: proc(shader: ^^Shader, app: ^platform.App, path: cstring, threade
     data.path = path
     
     if threaded {
-        platform.app_push_task(app, shader_load_task, cast(rawptr)data)    
+        app_push_task(app, shader_load_task, cast(rawptr)data)    
     } else {
         ttask := thread.Task{}
         ttask.allocator = context.allocator
@@ -63,8 +61,8 @@ shader_unbind :: proc(shader: ^Shader) {
     gl.UseProgram(0)
 }
 
-shader_reload :: proc(shader: ^^Shader, app: ^platform.App) {
-    log.debug("Shader reload request at ", platform.app_time())
+shader_reload :: proc(shader: ^^Shader, app: ^App) {
+    log.debug("Shader reload request at ", app_time())
     path := strings.clone_to_cstring(shader^.path, context.temp_allocator)
     shader_free(shader)
     shader_load(shader, app, path)
@@ -232,7 +230,7 @@ shader_load_task :: proc(task: thread.Task) {
         shader.path = string(task_data.path)
         shader.src = strings.string_from_nul_terminated_ptr(&src[0], len(src))
         shader.load_state = .Loaded_And_Not_Uploaded
-        log.debug("Shader load request succeeded at ", platform.app_time())
+        log.debug("Shader load request succeeded at ", app_time())
     } else {
         task_data.shader^.load_state = .Invalid
     }

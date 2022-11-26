@@ -1,4 +1,4 @@
-package platform
+package main
 
 import "vendor:glfw"
 import la "core:math/linalg/glsl"

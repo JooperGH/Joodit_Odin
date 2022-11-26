@@ -8,46 +8,43 @@ import "core:runtime"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
-import "platform"
-import "renderer"
-
 _main :: proc() {
-	app := new(platform.App)
-	platform.app_init(app, "Jedit", 1920, 1080)
-	defer platform.app_shutdown(app)
+	app := new(App)
+	app_init(app, "Jedit", 1920, 1080)
+	defer app_shutdown(app)
 
-	renderer.init(app)
-	defer renderer.free()
+	renderer_init(app)
+	defer renderer_free()
 
-	platform.app_push_layer(app, 
-							new(Layer),
-							layer_on_attach,
-							layer_on_detach,
-							layer_on_update,
-							layer_on_render,
-						    layer_on_event)
+	app_push_layer(app, 
+					new(Editor_Layer),
+					editor_layer_on_attach,
+					editor_layer_on_detach,
+					editor_layer_on_update,
+					editor_layer_on_render,
+					editor_layer_on_event)
 
 	for layer in app.layers {
 		layer.on_attach(layer.data, app)
 	}
 
-	platform.app_calc_dt(app)
-	for platform.app_running(app) {
-		platform.app_begin_frame(app)
+	app_calc_dt(app)
+	for app_running(app) {
+		app_begin_frame(app)
 		
 		for i := 0; i < len(app.layers); i += 1 {
 			layer := app.layers[i]
 			layer.on_update(layer.data, app)
 		}
 		
-		renderer.begin()
+		renderer_begin()
 		for i := len(app.layers)-1; i >= 0; i -= 1 {
 			layer := app.layers[i]
 			layer.on_render(layer.data, app)
 		}
-		renderer.end()
+		renderer_end()
 
-		platform.app_end_frame(app)
+		app_end_frame(app)
 	}
 }
 
@@ -60,7 +57,7 @@ main :: proc() {
 	
 	logger := log.create_multi_logger(log.create_console_logger(), log.create_file_logger(log_file))
 	context.logger = logger
-	platform.gcontext = context
+	gcontext = context
 
 	_main()
 

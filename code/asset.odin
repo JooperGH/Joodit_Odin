@@ -1,4 +1,4 @@
-package assets
+package main
 
 import "core:log"
 

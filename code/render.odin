@@ -1,7 +1,4 @@
-package renderer
-
-import "../assets"
-import "../platform"
+package main
 
 import "core:slice"
 import "core:fmt"
@@ -24,7 +21,7 @@ Vertex :: struct {
 }
 
 Renderer :: struct {
-    app: ^platform.App,
+    app: ^App,
 
 	vao: u32,
 	vbo: u32,
@@ -39,11 +36,11 @@ Renderer :: struct {
     texture_slot: u32,
     texture_data: []u32,
     
-    shader: ^assets.Shader,
-    font: ^assets.Font,
+    shader: ^Shader,
+    font: ^Font,
 }
 
-init :: proc(app: ^platform.App) {
+renderer_init :: proc(app: ^App) {
     gl_renderer.app = app
 
     max_quads : u32 = 65536
@@ -72,27 +69,27 @@ init :: proc(app: ^platform.App) {
     gl.VertexAttribPointer(4, 1, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, mode))
     gl.EnableVertexAttribArray(4)
 
-    index_data := generate_index_data(max_quads)
+    index_data := renderer_generate_index_data(max_quads)
     gl.GenBuffers(1, &gl_renderer.ibo)
     gl.BindBuffer(gl.ELEMENT_ARRAY_BUFFER, gl_renderer.ibo)
     gl.BufferData(gl.ELEMENT_ARRAY_BUFFER, int(size_of(u32) * max_quads * 6), cast(rawptr)&index_data[0], gl.STATIC_DRAW)    
     delete(index_data)
     gl.BindVertexArray(0)
 
-    assets.shader_load(&gl_renderer.shader, app, "shaders/default.glsl", false)
-    assets.font_load(&gl_renderer.font, app, "fonts/OpenSans-Regular.ttf", 40, assets.Font_Glyph_Range_Default, assets.Font_Raster_Type.SDF, 2048, 2048, false)
+    shader_load(&gl_renderer.shader, app, "shaders/default.glsl", false)
+    font_load(&gl_renderer.font, app, "fonts/OpenSans-Regular.ttf", 40, Font_Glyph_Range_Default, Font_Raster_Type.SDF, 2048, 2048, false)
     
-    if assets.shader_validate(gl_renderer.shader) {
-        assets.shader_bind(gl_renderer.shader)
+    if shader_validate(gl_renderer.shader) {
+        shader_bind(gl_renderer.shader)
         samplers := make([]i32, 32, context.temp_allocator)
         for i := 0; i < 32; i += 1 {
             samplers[i] = i32(i)
         }
-        assets.shader_set(gl_renderer.shader, "u_textures", &samplers)
+        shader_set(gl_renderer.shader, "u_textures", &samplers)
     }   
 }
 
-free :: proc() {
+renderer_free :: proc() {
     gl.DeleteVertexArrays(1, &gl_renderer.vao)
     gl.DeleteBuffers(1, &gl_renderer.vbo)
     gl.DeleteBuffers(1, &gl_renderer.ibo)
@@ -100,11 +97,11 @@ free :: proc() {
     delete(gl_renderer.vertex_data)
     delete(gl_renderer.texture_data)
 
-    assets.shader_free(&gl_renderer.shader)
-    assets.font_free(&gl_renderer.font)
+    shader_free(&gl_renderer.shader)
+    font_free(&gl_renderer.font)
 }
 
-add_quad :: proc(v: ^[4]Vertex) {
+renderer_add_quad :: proc(v: ^[4]Vertex) {
     if gl_renderer.vertex_data_at + 4 >= gl_renderer.vertex_data_cap {
         log.error("Renderer reached quad limit!")
         return
@@ -119,9 +116,9 @@ add_quad :: proc(v: ^[4]Vertex) {
     gl_renderer.index_count += 6
 }
 
-draw :: proc{draw_rect, draw_text, draw_texture}
+renderer_draw :: proc{renderer_draw_rect, renderer_draw_text, renderer_draw_texture}
 
-draw_rect :: proc(rect: [4]f32, color: [4]f32) {
+renderer_draw_rect :: proc(rect: [4]f32, color: [4]f32) {
     quad := [4]Vertex{
         {
             rect.xy,
@@ -153,11 +150,11 @@ draw_rect :: proc(rect: [4]f32, color: [4]f32) {
         },
     }
     
-    add_quad(&quad)
+    renderer_add_quad(&quad)
 }
 
-draw_texture :: proc(texture: ^assets.Texture, rect: [4]f32, color: [4]f32) {
-    if !assets.texture_validate(texture) {
+renderer_draw_texture :: proc(texture: ^Texture, rect: [4]f32, color: [4]f32) {
+    if !texture_validate(texture) {
         return
     }
 
@@ -206,16 +203,16 @@ draw_texture :: proc(texture: ^assets.Texture, rect: [4]f32, color: [4]f32) {
         },
     }
     
-    add_quad(&quad)
+    renderer_add_quad(&quad)
 }
 
-draw_text :: proc(text: string, pos: [2]f32, color: [4]f32, size: f32) {
+renderer_draw_text :: proc(text: string, pos: [2]f32, color: [4]f32, size: f32) {
     font := gl_renderer.font
-    if !assets.font_validate(gl_renderer.font) {
+    if !font_validate(gl_renderer.font) {
         return
     }
 
-    render_mode := assets.font_get_render_mode(gl_renderer.font)
+    render_mode := font_get_render_mode(gl_renderer.font)
 
     slot : int = -1
     for i := 0; i < int(gl_renderer.texture_slot); i += 1 {
@@ -241,11 +238,6 @@ draw_text :: proc(text: string, pos: [2]f32, color: [4]f32, size: f32) {
         glyph_b, ok_b := font.glyphs[rune_b]
         
         if ok {
-            if gl_renderer.vertex_data_at + 4 >= gl_renderer.vertex_data_cap {
-                log.error("Renderer reached quad limit!")
-                return
-            }
-
             scaling_factor := (size/f32(font.size))
             
             x := cpos.x + glyph.offset.x*scaling_factor
@@ -278,11 +270,11 @@ draw_text :: proc(text: string, pos: [2]f32, color: [4]f32, size: f32) {
             vertices[2].mode = render_mode
             vertices[3].mode = render_mode
 
-            add_quad(&vertices)
+            renderer_add_quad(&vertices)
 
             extra : f32 = 0.0
             if ok && ok_b {
-                extra = assets.font_glyph_kern(font, &glyph, &glyph_b)
+                extra = font_glyph_kern(font, &glyph, &glyph_b)
             }
 
             cpos.x += (glyph.advance + extra) * scaling_factor
@@ -290,14 +282,14 @@ draw_text :: proc(text: string, pos: [2]f32, color: [4]f32, size: f32) {
     }
 }
 
-begin :: proc() {
+renderer_begin :: proc() {
     gl_renderer.index_count = 0
     gl_renderer.vertex_data_at = 0
     gl_renderer.texture_slot = 0
 }
 
-end :: proc() {
-    if !assets.shader_validate(gl_renderer.shader) || !assets.font_validate(gl_renderer.font) {
+renderer_end :: proc() {
+    if !shader_validate(gl_renderer.shader) || !font_validate(gl_renderer.font) {
         return
     }
 
@@ -314,8 +306,8 @@ end :: proc() {
     gl.ClearColor(0.1, 0.1, 0.1, 1.0)
     gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
-    assets.shader_bind(gl_renderer.shader)
-    assets.shader_set(gl_renderer.shader, "u_proj", &proj)
+    shader_bind(gl_renderer.shader)
+    shader_set(gl_renderer.shader, "u_proj", &proj)
     for i : u32 = 0; i < gl_renderer.texture_slot; i += 1 {
         gl.BindTextureUnit(i, gl_renderer.texture_data[i])
     }
@@ -323,7 +315,7 @@ end :: proc() {
 }
 
 @(private)
-generate_index_data :: proc(quad_count: u32) -> []u32 {
+renderer_generate_index_data :: proc(quad_count: u32) -> []u32 {
     index_count, offset : u32 = quad_count * 6, 0
     data := make([]u32, index_count)
     for i : u32 = 0; i < index_count; i += 6 {

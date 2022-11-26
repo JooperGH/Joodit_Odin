@@ -1,2 +1,2 @@
 @echo off
-odin test code/tests
+odin test code

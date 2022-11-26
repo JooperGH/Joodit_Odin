@@ -1,4 +1,4 @@
-package assets
+package main
 
 import "core:log"
 import "core:fmt"
@@ -8,8 +8,6 @@ import "core:sort"
 import "core:slice"
 
 import stbtt "vendor:stb/truetype"
-
-import "../platform"
 
 Font_Data :: ^stbtt.fontinfo
 
@@ -66,7 +64,7 @@ Font_Glyph_Range_Latin :: Font_Glyph_Range{0x0020, 0x00FF}
 Font_Glyph_Range_Punctuation :: Font_Glyph_Range{0x2000, 0x206F}
 Font_Glyph_Range_Default :: []Font_Glyph_Range{Font_Glyph_Range_Latin, Font_Glyph_Range_Punctuation}
 
-font_load :: proc(font: ^^Font, app: ^platform.App, path: string, size: i32, ranges: []Font_Glyph_Range, raster_type: Font_Raster_Type, atlas_width: i32 = 2048, atlas_height: i32 = 2048, threaded: bool = true){
+font_load :: proc(font: ^^Font, app: ^App, path: string, size: i32, ranges: []Font_Glyph_Range, raster_type: Font_Raster_Type, atlas_width: i32 = 2048, atlas_height: i32 = 2048, threaded: bool = true){
     if !check_load_state(cast(rawptr)font^, Font, proc(data: rawptr) {
         font := cast(^Font)data
         font_free(&font)
@@ -74,7 +72,7 @@ font_load :: proc(font: ^^Font, app: ^platform.App, path: string, size: i32, ran
         return
     }
 
-    log.debug("Font load request at ", platform.app_time())
+    log.debug("Font load request at ", app_time())
     
     font^ = new(Font)
     font^.load_state = .Queued
@@ -89,7 +87,7 @@ font_load :: proc(font: ^^Font, app: ^platform.App, path: string, size: i32, ran
     data.ranges = slice.clone(ranges)
     
     if threaded {
-        platform.app_push_task(app, font_load_task, cast(rawptr)data)
+        app_push_task(app, font_load_task, cast(rawptr)data)
     } else {
         ttask := thread.Task{}
         ttask.allocator = context.allocator
@@ -267,7 +265,7 @@ font_load_task :: proc(task: thread.Task) {
         delete(builder_glyphs)
 
         font.load_state = .Loaded_And_Not_Uploaded
-		log.debug("Font load request succeeded at ", platform.app_time())
+		log.debug("Font load request succeeded at ", app_time())
     } else {
         task_data.font^.load_state = .Invalid
     }

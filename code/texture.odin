@@ -1,4 +1,4 @@
-package assets
+package main
 
 import "core:log"
 import "core:fmt"
@@ -8,8 +8,6 @@ import "core:strings"
 
 import stbi "vendor:stb/image"
 import gl "vendor:OpenGL"
-
-import "../platform"
 
 Texture_Format :: enum {
     Alpha,
@@ -32,7 +30,7 @@ Texture_Load_Task_Data :: struct {
     path: string,
 }
 
-texture_load :: proc(texture: ^^Texture, app: ^platform.App, path: string, threaded: bool = true) {
+texture_load :: proc(texture: ^^Texture, app: ^App, path: string, threaded: bool = true) {
     if !check_load_state(cast(rawptr)texture^, Texture, proc(data: rawptr) {
         texture := cast(^Texture)data
         texture_free(&texture)
@@ -40,7 +38,7 @@ texture_load :: proc(texture: ^^Texture, app: ^platform.App, path: string, threa
         return
     }
     
-    log.debug("Font load request at ", platform.app_time())
+    log.debug("Font load request at ", app_time())
     
     texture^ = new(Texture, context.allocator)
     texture^.load_state = .Queued
@@ -50,7 +48,7 @@ texture_load :: proc(texture: ^^Texture, app: ^platform.App, path: string, threa
     data.path = path
 
     if threaded {
-        platform.app_push_task(app, texture_load_task, cast(rawptr)data)
+        app_push_task(app, texture_load_task, cast(rawptr)data)
     } else {
         ttask := thread.Task{}
         ttask.allocator = context.allocator
