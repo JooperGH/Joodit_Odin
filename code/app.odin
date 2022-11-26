@@ -1,4 +1,4 @@
-package platform
+package main
 
 import "core:fmt"
 import "core:runtime"
@@ -10,7 +10,6 @@ import la "core:math/linalg/glsl"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 
-import "../events"
 
 gcontext: runtime.Context
 
@@ -22,14 +21,14 @@ App :: struct {
 
     pool: thread.Pool,
 
-    event_callback: proc(app: ^App, e: ^events.Event),
+    event_callback: proc(app: ^App, e: ^Event),
     layers: [dynamic]^Layer,
     running: b32,
     last_time: f32,
     window: glfw.WindowHandle,
 }
 
-Event_Fn :: #type proc(rawptr, ^App, ^events.Event) -> b32
+Event_Fn :: #type proc(rawptr, ^App, ^Event) -> b32
 
 app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720) {
     app.width = width
@@ -115,7 +114,7 @@ app_time :: proc() -> f32 {
 }
 
 app_begin_frame :: proc(app: ^App) {
-    event := events.app_update_start(app_time())
+    event := app_update_start(app_time())
     app->event_callback(&event)
     glfw.PollEvents()
 }
@@ -127,12 +126,12 @@ app_calc_dt :: proc(app: ^App) {
 }
 
 app_end_frame :: proc(app: ^App) {
-    event := events.app_update_end(app_time())
+    event := app_update_end(app_time())
     app->event_callback(&event)
-    event = events.app_render_start(app_time())
+    event = app_render_start(app_time())
     app->event_callback(&event)
     glfw.SwapBuffers(app.window)
-    event = events.app_render_end(app_time())
+    event = app_render_end(app_time())
     app->event_callback(&event)
     app_calc_dt(app)
 }
@@ -143,7 +142,7 @@ app_push_layer :: proc(app: ^App,
                   on_detach: proc(rawptr, ^App),
                   on_update: proc(rawptr, ^App),
                   on_render: proc(rawptr, ^App),
-                  on_event: proc(rawptr, ^App, ^events.Event)) {
+                  on_event: proc(rawptr, ^App, ^Event)) {
     layer.data = layer
     layer.on_attach = on_attach
     layer.on_detach = on_detach
@@ -153,7 +152,7 @@ app_push_layer :: proc(app: ^App,
     append(&app.layers, layer)
 }
 
-event_dispatch :: proc(data: rawptr, e: ^events.Event, app: ^App, $T: typeid, fn: Event_Fn) -> b32 {
+event_dispatch :: proc(data: rawptr, e: ^Event, app: ^App, $T: typeid, fn: Event_Fn) -> b32 {
     _, ok := e.type.(T)
     if ok {
         e.handled |= fn(data, app, e)
@@ -163,27 +162,27 @@ event_dispatch :: proc(data: rawptr, e: ^events.Event, app: ^App, $T: typeid, fn
     return false
 }   
 
-on_window_close :: proc(data: rawptr, app: ^App, e: ^events.Event) -> b32 {
+on_window_close :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
     return true
 }
 
-on_window_resized :: proc(data: rawptr, app: ^App, e: ^events.Event) -> b32 {
+on_window_resized :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
     return true
 }
 
-on_window_moved :: proc(data: rawptr, app: ^App, e: ^events.Event) -> b32 {
+on_window_moved :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
     return true
 }
 
-on_window_focus :: proc(data: rawptr, app: ^App, e: ^events.Event) -> b32 {
+on_window_focus :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
     return true
 }
 
-on_event :: proc(app: ^App, e: ^events.Event) {
-    event_dispatch(nil, e, app, events.Window_Close_Event, on_window_close)
-    event_dispatch(nil, e, app, events.Window_Resized_Event, on_window_resized)
-    event_dispatch(nil, e, app, events.Window_Moved_Event, on_window_moved)
-    event_dispatch(nil, e, app, events.Window_Focus_Event, on_window_focus)
+on_event :: proc(app: ^App, e: ^Event) {
+    event_dispatch(nil, e, app, Window_Close_Event, on_window_close)
+    event_dispatch(nil, e, app, Window_Resized_Event, on_window_resized)
+    event_dispatch(nil, e, app, Window_Moved_Event, on_window_moved)
+    event_dispatch(nil, e, app, Window_Focus_Event, on_window_focus)
 
     for layer in app.layers {
         if e.handled {
@@ -199,11 +198,11 @@ key_callback :: proc "cdecl" (window: glfw.WindowHandle, key, scancode, action, 
     context = gcontext
     app := transmute(^App)glfw.GetWindowUserPointer(window)
 
-    event := events.Event{}
+    event := Event{}
     switch action {
-        case glfw.PRESS: event = events.key_pressed(key, 0)
-        case glfw.REPEAT: event = events.key_pressed(key, 1)
-        case glfw.RELEASE: event = events.key_released(key, 0)
+        case glfw.PRESS: event = key_pressed(key, 0)
+        case glfw.REPEAT: event = key_pressed(key, 1)
+        case glfw.RELEASE: event = key_released(key, 0)
     }
     app->event_callback(&event)
 }
@@ -212,7 +211,7 @@ key_callback :: proc "cdecl" (window: glfw.WindowHandle, key, scancode, action, 
 scroll_callback :: proc "cdecl" (window: glfw.WindowHandle, xpos, ypos: f64) {
     context = gcontext
     app := transmute(^App)glfw.GetWindowUserPointer(window)
-    event := events.mouse_scrolled(la.vec2{f32(xpos), f32(ypos)})
+    event := mouse_scrolled(la.vec2{f32(xpos), f32(ypos)})
     app->event_callback(&event)
 }
 
@@ -221,10 +220,10 @@ button_callback :: proc "cdecl" (window: glfw.WindowHandle, button, action, mods
     context = gcontext
     app := transmute(^App)glfw.GetWindowUserPointer(window)
 
-    event := events.Event{}
+    event := Event{}
     switch action {
-        case glfw.PRESS: event = events.mouse_pressed(button)
-        case glfw.RELEASE: event = events.mouse_released(button)
+        case glfw.PRESS: event = mouse_pressed(button)
+        case glfw.RELEASE: event = mouse_released(button)
     }
     app->event_callback(&event)
 }
@@ -233,7 +232,7 @@ button_callback :: proc "cdecl" (window: glfw.WindowHandle, button, action, mods
 cursor_pos_callback :: proc "cdecl" (window: glfw.WindowHandle, xpos, ypos: f64) {
     context = gcontext
     app := transmute(^App)glfw.GetWindowUserPointer(window)
-    event := events.mouse_moved(la.vec2{f32(xpos), f32(ypos)})
+    event := mouse_moved(la.vec2{f32(xpos), f32(ypos)})
     app->event_callback(&event)
 }
 
@@ -241,7 +240,7 @@ cursor_pos_callback :: proc "cdecl" (window: glfw.WindowHandle, xpos, ypos: f64)
 window_size_callback :: proc "cdecl" (window: glfw.WindowHandle, width, height: i32) {
     context = gcontext
     app := transmute(^App)glfw.GetWindowUserPointer(window)
-    event := events.window_resize(la.vec2{f32(width), f32(height)})
+    event := window_resize(la.vec2{f32(width), f32(height)})
     app->event_callback(&event)
 }
 
@@ -249,7 +248,7 @@ window_size_callback :: proc "cdecl" (window: glfw.WindowHandle, width, height: 
 window_pos_callback :: proc "cdecl" (window: glfw.WindowHandle, width, height: i32) {
     context = gcontext
     app := transmute(^App)glfw.GetWindowUserPointer(window)
-    event := events.window_moved(la.vec2{f32(width), f32(height)})
+    event := window_moved(la.vec2{f32(width), f32(height)})
     app->event_callback(&event)
 }
 
@@ -257,7 +256,7 @@ window_pos_callback :: proc "cdecl" (window: glfw.WindowHandle, width, height: i
 window_close_callback :: proc "cdecl" (window: glfw.WindowHandle) {
     context = gcontext
     app := transmute(^App)glfw.GetWindowUserPointer(window)
-    event := events.window_close(0)
+    event := window_close(0)
     app->event_callback(&event)
 }
 
@@ -265,6 +264,6 @@ window_close_callback :: proc "cdecl" (window: glfw.WindowHandle) {
 window_focus_callback :: proc "cdecl" (window: glfw.WindowHandle, iconified: i32) {
     context = gcontext
     app := transmute(^App)glfw.GetWindowUserPointer(window)
-    event := events.window_focus(b32(iconified))
+    event := window_focus(b32(iconified))
     app->event_callback(&event)
 }
