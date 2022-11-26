@@ -39,8 +39,8 @@ app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720)
 
     app.last_time = f32(glfw.GetTime())
 
-    gl_major :: 3
-    gl_minor :: 3
+    gl_major :: 4
+    gl_minor :: 6
     
     glfw.WindowHint(glfw.CONTEXT_VERSION_MAJOR, gl_major)
 	glfw.WindowHint(glfw.CONTEXT_VERSION_MINOR, gl_minor)
@@ -89,6 +89,7 @@ app_push_task :: proc(app: ^App, procedure: thread.Task_Proc, data: rawptr) {
 
 app_finish_tasks :: proc(app: ^App) {
     thread.pool_finish(&app.pool)
+    thread.pool_start(&app.pool)
 }
 
 app_shutdown :: proc(app: ^App) {
