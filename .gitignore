@@ -1,6 +1,5 @@
 .vscode/
 build/
-data/
 ols.json
 tests.exe
 *.todool
