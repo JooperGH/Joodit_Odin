@@ -23,6 +23,8 @@ Vertex :: struct {
     rect_params: [4]f32,
 }
 
+Quad :: [4]Vertex
+
 Renderer :: struct {
     app: ^App,
 
