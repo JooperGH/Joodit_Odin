@@ -1,23 +1,28 @@
-[DEBUG] --- [2022-11-26 21:45:13] [app.odin:55:app_init()] Debug Creating window...
-[DEBUG] --- [2022-11-26 21:45:13] [shader.odin:36:shader_load()] Shader load request at  0.470
-[DEBUG] --- [2022-11-26 21:45:13] [shader.odin:233:shader_load_task()] Shader load request succeeded at  0.482
-[DEBUG] --- [2022-11-26 21:45:13] [font.odin:75:font_load()] Font load request at  0.485
-[DEBUG] --- [2022-11-26 21:45:13] [font.odin:268:font_load_task()] Font load request succeeded at  0.889
-[DEBUG] --- [2022-11-26 21:45:13] [texture.odin:41:texture_load()] Font load request at  0.901
+[DEBUG] --- [2022-11-27 16:49:20] [app.odin:55:app_init()] Debug Creating window...
+[DEBUG] --- [2022-11-27 16:49:21] [shader.odin:36:shader_load()] Shader load request at  0.334
+[DEBUG] --- [2022-11-27 16:49:21] [shader.odin:233:shader_load_task()] Shader load request succeeded at  0.343
+[DEBUG] --- [2022-11-27 16:49:21] [font.odin:75:font_load()] Font load request at  0.345
+[DEBUG] --- [2022-11-27 16:49:21] [font.odin:268:font_load_task()] Font load request succeeded at  0.857
+[DEBUG] --- [2022-11-27 16:49:21] [texture.odin:41:texture_load()] Font load request at  0.861
 ompile with the following errors:
-ERROR: 0:29: error(#319) "case" or "default" must be inside a switch statement
+ERROR: 0:73: error(#172) Too many arguments constructor
 ERROR: error(#273) 1 compilation errors.  No code generated
 
 
-[ERROR] --- [2022-11-26 16:30:31] [shader.odin:188:shader_upload()] Fragment shader(s) were not successfully compiled before glLinkProgram() was called.  Link failed. 
+[ERROR] --- [2022-11-27 15:37:41] [shader.odin:186:shader_upload()] Fragment shader(s) were not successfully compiled before glLinkProgram() was called.  Link failed. 
 
-[DEBUG] --- [2022-11-26 16:30:31] [texture.odin:43:texture_load()] Font load request at  0.678
-as called.  Link failed. 
+[DEBUG] --- [2022-11-27 15:37:41] [texture.odin:41:texture_load()] Font load request at  0.906
+xture.odin:41:texture_load()] Font load request at  1.184
+essfully compiled before glLinkProgram() was called.  Link failed. 
 
-[DEBUG] --- [2022-11-25 19:16:49] [font.odin:194:font_load_task()] Font load request succeeded at  0.450
- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  14 bytes. 
-[DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/Odin/core/log/multi_logger.odin(9:10) leaked  16 bytes. 
-[DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  14 bytes. 
+[DEBUG] --- [2022-11-27 15:24:27] [texture.odin:41:texture_load()] Font load request at  1.127
+#273) 8 compilation errors.  No code generated
+
+
+[ERROR] --- [2022-11-27 11:36:49] [shader.odin:186:shader_upload()] Vertex shader(s) were not successfully compiled before glLinkProgram() was called.  Link failed. 
+
+[DEBUG] --- [2022-11-27 11:36:49] [texture.odin:41:texture_load()] Font load request at  0.657
+. 
 [DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  13 bytes. 
 [DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  13 bytes. 
 [DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  14 bytes. 

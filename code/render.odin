@@ -13,11 +13,14 @@ GPU_Handle :: u32
 gl_renderer := Renderer{}
 
 Vertex :: struct {
-    position: [2]f32,
+    pos_vec: [2]f32,
     tex_coord: [2]f32,
     color: [4]f32,
+    border_color: [4]f32,
     tex_id: f32,
     mode: f32,
+    rect: [4]f32,
+    rect_params: [4]f32,
 }
 
 Renderer :: struct {
@@ -58,16 +61,22 @@ renderer_init :: proc(app: ^App) {
     gl.GenBuffers(1, &gl_renderer.vbo)
     gl.BindBuffer(gl.ARRAY_BUFFER, gl_renderer.vbo)
     gl.BufferData(gl.ARRAY_BUFFER, size_of(Vertex) * int(gl_renderer.vertex_data_cap), nil, gl.DYNAMIC_DRAW)
-    gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, position))
+    gl.VertexAttribPointer(0, 2, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, pos_vec))
     gl.EnableVertexAttribArray(0)
     gl.VertexAttribPointer(1, 2, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, tex_coord))
     gl.EnableVertexAttribArray(1)
     gl.VertexAttribPointer(2, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, color))
     gl.EnableVertexAttribArray(2)
-    gl.VertexAttribPointer(3, 1, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, tex_id))
+    gl.VertexAttribPointer(3, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, border_color))
     gl.EnableVertexAttribArray(3)
-    gl.VertexAttribPointer(4, 1, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, mode))
+    gl.VertexAttribPointer(4, 1, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, tex_id))
     gl.EnableVertexAttribArray(4)
+    gl.VertexAttribPointer(5, 1, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, mode))
+    gl.EnableVertexAttribArray(5)
+    gl.VertexAttribPointer(6, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, rect))
+    gl.EnableVertexAttribArray(6)
+    gl.VertexAttribPointer(7, 4, gl.FLOAT, gl.FALSE, size_of(Vertex), offset_of(Vertex, rect_params))
+    gl.EnableVertexAttribArray(7)
 
     index_data := renderer_generate_index_data(max_quads)
     gl.GenBuffers(1, &gl_renderer.ibo)
@@ -101,6 +110,7 @@ renderer_free :: proc() {
     font_free(&gl_renderer.font)
 }
 
+@(private)
 renderer_add_quad :: proc(v: ^[4]Vertex) {
     if gl_renderer.vertex_data_at + 4 >= gl_renderer.vertex_data_cap {
         log.error("Renderer reached quad limit!")
@@ -116,44 +126,56 @@ renderer_add_quad :: proc(v: ^[4]Vertex) {
     gl_renderer.index_count += 6
 }
 
-renderer_draw :: proc{renderer_draw_rect, renderer_draw_text, renderer_draw_texture}
+render :: proc{render_rect, render_text, render_texture}
 
-renderer_draw_rect :: proc(rect: [4]f32, color: [4]f32) {
+render_rect :: proc(rect: Rect, color: Color, roundness: f32 = 0.0, softness: f32 = 2.0, border_thickness: f32 = 0.0, border_color: Color = {0.0, 0.0, 0.0, 1.0}) {
     quad := [4]Vertex{
         {
-            rect.xy,
+            { -1, -1 },
             { 0, 0 },
             color,
+            border_color,
             0,
             0,
+            rect,
+            {roundness, softness, border_thickness, 0.0},
         },
         {
-            rect.zy,
+            { 1, -1 },
             { 1, 0 },
             color,
+            border_color,
             0,
             0,
+            rect,
+            {roundness, softness, border_thickness, 0.0},
         },
         {
-            rect.zw,
+            { 1, 1 },
             { 1, 1 },
             color,
+            border_color,
             0,
             0, 
+            rect,
+            {roundness, softness, border_thickness, 0.0},
         },
         {
-            rect.xw,
+            { -1, 1 },
             { 0, 1 },
             color,
+            border_color,
             0,
             0, 
+            rect,
+            {roundness, softness, border_thickness, 0.0},
         },
     }
     
     renderer_add_quad(&quad)
 }
 
-renderer_draw_texture :: proc(texture: ^Texture, rect: [4]f32, color: [4]f32) {
+render_texture :: proc(texture: ^Texture, rect: Rect, color: Color, roundness: f32 = 0.0, softness: f32 = 2.0, border_thickness: f32 = 0.0, border_color: Color = {0.0, 0.0, 0.0, 1.0}) {
     if !texture_validate(texture) {
         return
     }
@@ -174,43 +196,59 @@ renderer_draw_texture :: proc(texture: ^Texture, rect: [4]f32, color: [4]f32) {
     
     quad := [4]Vertex{
         {
-            rect.xy,
+            { -1, -1 },
             { 0, 0 },
             color,
+            border_color,
             f32(slot),
             1.0,
+            rect,
+            {roundness, softness, border_thickness, 0.0},
         },
         {
-            rect.zy,
+            { 1, -1 },
             { 1, 0 },
             color,
+            border_color,
             f32(slot),
             1.0,
+            rect,
+            {roundness, softness, border_thickness, 0.0},
         },
         {
-            rect.zw,
+            { 1, 1 },
             { 1, 1 },
             color,
+            border_color,
             f32(slot),
             1.0, 
+            rect,
+            {roundness, softness, border_thickness, 0.0},
         },
         {
-            rect.xw,
+            { -1, 1 },
             { 0, 1 },
             color,
+            border_color,
             f32(slot),
             1.0, 
+            rect,
+            {roundness, softness, border_thickness, 0.0},
         },
     }
     
     renderer_add_quad(&quad)
 }
 
-renderer_draw_text :: proc(text: string, pos: [2]f32, color: [4]f32, size: f32) {
+render_text :: proc(text: string, size: f32, pos: Vec2, options: Text_Render_Options, color: Vec4) -> Rect{
     font := gl_renderer.font
-    if !font_validate(gl_renderer.font) {
-        return
+    if !font_validate(font) {
+        return {}
     }
+
+    rect := text_rect(text, size, pos)
+    resolved_rect := text_rect_options_resolve(options, rect)
+    options_offset := resolved_rect.xy - rect.xy 
 
     render_mode := font_get_render_mode(gl_renderer.font)
 
@@ -230,7 +268,7 @@ renderer_draw_text :: proc(text: string, pos: [2]f32, color: [4]f32, size: f32) 
     
     vertices := [4]Vertex{}
     
-    cpos := pos
+    cpos := pos + options_offset
     for r := 0; r < len(text); r += 1 {
         rune_a := rune(text[r])
         rune_b := r < len(text)-2 ? rune(text[r+1]) : rune(-1)
@@ -245,32 +283,53 @@ renderer_draw_text :: proc(text: string, pos: [2]f32, color: [4]f32, size: f32) 
 
             eff_dim := glyph.dim * scaling_factor
 
-            vertices[0].position = {x, y}
-            vertices[1].position = {x+eff_dim.x, y}
-            vertices[2].position = {x+eff_dim.x, y-eff_dim.y}
-            vertices[3].position = {x, y-eff_dim.y}
-            
-            vertices[0].tex_coord = {glyph.uv.x, glyph.uv.w}
-            vertices[1].tex_coord = {glyph.uv.z, glyph.uv.w}
-            vertices[2].tex_coord = {glyph.uv.z, glyph.uv.y}
-            vertices[3].tex_coord = {glyph.uv.x, glyph.uv.y}
+            rect := [4]f32{x, y, x+eff_dim.x, y-eff_dim.y}
 
-            vertices[0].color = {color.r, color.g, color.b, color.a}
-            vertices[1].color = {color.r, color.g, color.b, color.a}
-            vertices[2].color = {color.r, color.g, color.b, color.a}
-            vertices[3].color = {color.r, color.g, color.b, color.a}
-
-            vertices[0].tex_id = f32(slot)
-            vertices[1].tex_id = f32(slot)
-            vertices[2].tex_id = f32(slot)
-            vertices[3].tex_id = f32(slot)
-            
-            vertices[0].mode = render_mode
-            vertices[1].mode = render_mode
-            vertices[2].mode = render_mode
-            vertices[3].mode = render_mode
-
-            renderer_add_quad(&vertices)
+            width : f32 = 0.7
+            edge : f32 = 0.025
+            quad := [4]Vertex{
+                {
+                    { -1, -1 },
+                    { glyph.uv.x, glyph.uv.w },
+                    color,
+                    {},
+                    f32(slot),
+                    render_mode,
+                    rect,
+                    {width, edge, 0, 0},
+                },
+                {
+                    { 1, -1 },
+                    { glyph.uv.z, glyph.uv.w },
+                    color,
+                    {},
+                    f32(slot),
+                    render_mode,
+                    rect,
+                    {width, edge, 0, 0},
+                },
+                {
+                    { 1, 1 },
+                    { glyph.uv.z, glyph.uv.y },
+                    color,
+                    {},
+                    f32(slot),
+                    render_mode,
+                    rect,
+                    {width, edge, 0, 0},
+                },
+                {
+                    { -1, 1 },
+                    { glyph.uv.x, glyph.uv.y },
+                    color,
+                    {},
+                    f32(slot),
+                    render_mode,
+                    rect,
+                    {width, edge, 0, 0},
+                },
+            }
+            renderer_add_quad(&quad)
 
             extra : f32 = 0.0
             if ok && ok_b {
@@ -280,6 +339,8 @@ renderer_draw_text :: proc(text: string, pos: [2]f32, color: [4]f32, size: f32) 
             cpos.x += (glyph.advance + extra) * scaling_factor
         }
     }
+
+    return resolved_rect
 }
 
 renderer_begin :: proc() {
