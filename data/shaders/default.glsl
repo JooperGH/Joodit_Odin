@@ -70,7 +70,7 @@ vec2 rounded_rect_factor(float radius, float softness, float border_thickness, v
     float dist = rounded_rect_sdf(pos, center, half_dim-softness_padding, radius);
     float sdf_factor = 1.0 - smoothstep(0.0, 2.0*softness, dist);
 
-    float border_factor = 1.0;
+    float border_factor = 0.0;
     if (border_thickness != 0.0) {
         vec2 interior_half_size = half_dim - vec2(border_thickness, border_thickness);
         float interior_radius_reduce_f = min(interior_half_size.x/half_dim.x, interior_half_size.y/half_dim.y);

@@ -126,15 +126,52 @@ renderer_add_quad :: proc(v: ^[4]Vertex) {
     gl_renderer.index_count += 6
 }
 
-render :: proc{render_rect, render_text, render_texture}
+render :: proc{ render_rect, 
+                render_rect_gradient,
+                render_rect_single_fill_single_border_color,
+                render_rect_gradient_single_border_color,
+                render_rect_gradient_single_fill_color,
+                render_rect_no_border_no_rounding,
+                render_rect_no_border_no_rounding_gradient,
+                render_rect_no_border_no_rounding_single_color,
+                render_text,
+                render_texture}
 
-render_rect :: proc(rect: Rect, color: Color, roundness: f32 = 0.0, softness: f32 = 2.0, border_thickness: f32 = 0.0, border_color: Color = {0.0, 0.0, 0.0, 1.0}) {
+render_rect_no_border_no_rounding :: proc(rect: Rect, colors: [4]Color) {
+    render_rect(rect, colors, 0, 0, 0, {})
+}
+
+render_rect_no_border_no_rounding_gradient :: proc(rect: Rect, colors: [2]Color) {
+    render_rect(rect, {colors[1], colors[1], colors[0], colors[0]}, 0, 0, 0, {})
+}
+
+render_rect_no_border_no_rounding_single_color :: proc(rect: Rect, color: Color) {
+    render_rect(rect, {color, color, color, color}, 0, 0, 0, {})
+}
+
+render_rect_single_fill_single_border_color :: proc(rect: Rect, color: Color, roundness: f32, softness: f32, border_thickness: f32, border_color: Color) {
+    render_rect(rect, {color, color, color, color}, roundness, softness, border_thickness, {border_color, border_color, border_color, border_color})
+}
+
+render_rect_gradient :: proc(rect: Rect, colors: [2]Color, roundness: f32, softness: f32, border_thickness: f32, border_colors: [2]Color) {
+    render_rect(rect, {colors[1], colors[1], colors[0], colors[0]}, roundness, softness, border_thickness, {border_colors[1], border_colors[1], border_colors[0], border_colors[0]})
+}
+
+render_rect_gradient_single_fill_color :: proc(rect: Rect, color: Color, roundness: f32, softness: f32, border_thickness: f32, border_colors: [2]Color) {
+    render_rect(rect, {color, color, color, color}, roundness, softness, border_thickness, {border_colors[1], border_colors[1], border_colors[0], border_colors[0]})
+}
+
+render_rect_gradient_single_border_color :: proc(rect: Rect, colors: [2]Color, roundness: f32, softness: f32, border_thickness: f32, border_color: Color) {
+    render_rect(rect, {colors[1], colors[1], colors[0], colors[0]}, roundness, softness, border_thickness, {border_color, border_color, border_color, border_color})
+}
+
+render_rect :: proc(rect: Rect, colors: [4]Color, roundness: f32, softness: f32, border_thickness: f32, border_color: [4]Color) {
     quad := [4]Vertex{
         {
             { -1, -1 },
             { 0, 0 },
-            color,
-            border_color,
+            colors[0],
+            border_color[0],
             0,
             0,
             rect,
@@ -143,8 +180,8 @@ render_rect :: proc(rect: Rect, color: Color, roundness: f32 = 0.0, softness: f3
         {
             { 1, -1 },
             { 1, 0 },
-            color,
-            border_color,
+            colors[1],
+            border_color[1],
             0,
             0,
             rect,
@@ -153,8 +190,8 @@ render_rect :: proc(rect: Rect, color: Color, roundness: f32 = 0.0, softness: f3
         {
             { 1, 1 },
             { 1, 1 },
-            color,
-            border_color,
+            colors[2],
+            border_color[2],
             0,
             0, 
             rect,
@@ -163,8 +200,8 @@ render_rect :: proc(rect: Rect, color: Color, roundness: f32 = 0.0, softness: f3
         {
             { -1, 1 },
             { 0, 1 },
-            color,
-            border_color,
+            colors[3],
+            border_color[3],
             0,
             0, 
             rect,
@@ -240,7 +277,7 @@ render_texture :: proc(texture: ^Texture, rect: Rect, color: Color, roundness: f
     renderer_add_quad(&quad)
 }
 
-render_text :: proc(text: string, size: f32, pos: Vec2, options: Text_Render_Options, color: Vec4) -> Rect{
+render_text :: proc(text: string, size: f32, pos: Vec2, options: Text_Render_Options, color: Vec4) -> Rect {
     font := gl_renderer.font
     if !font_validate(font) {
         return {}

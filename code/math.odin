@@ -6,6 +6,7 @@ Vec4 :: [4]f32
 Mat4 :: [16]f32
 Rect :: [4]f32
 Color :: [4]f32
+Gradient :: [2]Color
 
 rect_center :: #force_inline proc(r: Rect) -> Vec2 {
     half_dim := 0.5*rect_dim(r)

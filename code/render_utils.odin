@@ -4,8 +4,8 @@ Text_Render_Operation :: enum {Center, Hor_Left, Hor_Right,
                                Ver_Top, Ver_Bottom}
 
 Text_Render_Options :: bit_set[Text_Render_Operation]
-                            
-text_rect :: proc(text: string, size: f32, pos: Vec2) -> Rect {
+
+text_rect :: proc(text: string, size: f32, pos: Vec2, options : Text_Render_Options = {.Center}) -> Rect {
     result := Rect{pos.x, pos.y, pos.x, pos.y}
     
     font := gl_renderer.font
@@ -43,6 +43,10 @@ text_rect :: proc(text: string, size: f32, pos: Vec2) -> Rect {
             }
             cpos.x += (glyph.advance + extra) * scaling_factor
         }
+    }
+
+    if options != {.Center} {
+        result = text_rect_options_resolve(options, result)
     }
 
     return result
