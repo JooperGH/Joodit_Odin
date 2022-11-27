@@ -1,7 +1,6 @@
 package main
 
 import "vendor:glfw"
-import la "core:math/linalg/glsl"
 
 input_key_down :: proc(app: ^App, key_code: i32) -> b32 {
     state := glfw.GetKey(app.window, key_code)
@@ -28,7 +27,7 @@ input_mouse_released :: proc(app: ^App, key_code: i32) -> b32 {
     return state == glfw.RELEASE
 }
 
-input_mouse_pos :: proc(app: ^App) -> la.vec2 {
+input_mouse_pos :: proc(app: ^App) -> Vec2 {
     x, y := glfw.GetCursorPos(app.window)
-    return la.vec2{f32(x), f32(y)}
+    return Vec2{f32(x), f32(app.height)-f32(y)}
 }

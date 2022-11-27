@@ -4,6 +4,7 @@ import "core:fmt"
 import "core:log"
 import "core:thread"
 import "core:runtime"
+import "core:strings"
 import "vendor:glfw"
 import gl "vendor:OpenGL"
 import "core:math/linalg/glsl"
@@ -66,8 +67,9 @@ editor_layer_on_update :: proc(data: rawptr, app: ^App) {
 editor_layer_on_render :: proc(data: rawptr, app: ^App) {
 	editor := cast(^Editor_Layer)data
 
-	
-	renderer_draw(string("Hello good world, SDF text rendering is working now! At last :>"), [2]f32{50, 400}, Rect{1.0, 1.0, 1.0, 1.0}, editor.size)
-	renderer_draw_rect({50, 400, 55, 405}, {1, 0, 0, 1})
-	renderer_draw_texture(editor.tex, {100, 200, 200, 300}, {1, 1, 1, 1})
+	frame_time_text := format_string("Frame Time: %.2f ms", app.dt*1000.0)
+	frame_time_pos := Vec2{20, 20}
+	frame_time_rect := text_rect(frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Center})
+	render(frame_time_rect, Color{0.0, 0.0, 0.0, 0.0}, 10.0, 2.0, 3.0, Color{0, 0, 0, 1})
+	render(frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Center}, Color{1.0, 1.0, 1.0, 1.0})
 }

@@ -38,7 +38,7 @@ Font :: struct {
     ranges: []Font_Glyph_Range,
     glyphs: map[rune]Font_Glyph,
     baseline: f32,
-    line_gap: f32,
+    line_advance: f32, 
 
     load_state: Load_State,
 } 
@@ -129,7 +129,7 @@ font_bitmap_raster :: proc(font: ^Font) -> []Font_Builder_Glyph {
 
 @(private)
 font_sdf_raster :: proc(font: ^Font) -> []Font_Builder_Glyph {
-    padding : i32 = 10
+    padding : i32 = 16
     pixel_dist_scale : f32 = f32(127)/f32(padding)
 
     g := 0
@@ -238,7 +238,7 @@ font_load_task :: proc(task: thread.Task) {
         ascent, descent, line_gap: i32 
         stbtt.GetFontVMetrics(fontinfo, &ascent, &descent, &line_gap)
         font.baseline = f32(ascent) * font.scale
-        font.line_gap = f32(line_gap) * font.scale
+        font.line_advance = (f32(ascent) - f32(descent) + f32(line_gap)) * font.scale
 
         builder_glyphs: []Font_Builder_Glyph
         switch font.raster_type {
