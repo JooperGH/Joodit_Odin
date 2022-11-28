@@ -16,6 +16,9 @@ _main :: proc() {
 	renderer_init(app)
 	defer renderer_free()
 
+	ui_init(app)
+	defer ui_free()
+
 	app_push_layer(app, 
 					new(Editor_Layer),
 					editor_layer_on_attach,
@@ -31,6 +34,7 @@ _main :: proc() {
 	app_calc_dt(app)
 	for app_running(app) {
 		app_begin_frame(app)
+		ui_update_input_events()
 		
 		for i := 0; i < len(app.layers); i += 1 {
 			layer := app.layers[i]
