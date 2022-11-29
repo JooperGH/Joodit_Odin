@@ -5,10 +5,10 @@ import "core:runtime"
 import "core:log"
 import "core:strings"
 import "core:thread"
+import "core:math"
 
 import "vendor:glfw"
 import gl "vendor:OpenGL"
-
 
 gcontext: runtime.Context
 
@@ -70,6 +70,8 @@ app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720)
     glfw.SetWindowPosCallback(app.window, window_pos_callback)
     glfw.SetWindowCloseCallback(app.window, window_close_callback)
     glfw.SetWindowFocusCallback(app.window, window_focus_callback)
+    glfw.SetCursorEnterCallback(app.window, mouse_enter_callback)
+    glfw.SetCharCallback(app.window, char_callback)
 
     glfw.SetWindowUserPointer(app.window, rawptr(app))
     app.event_callback = on_event
@@ -203,6 +205,14 @@ on_event :: proc(app: ^App, e: ^Event) {
 }
 
 @(private)
+key_modifiers :: proc(app: ^App, mods: i32) {
+    app->event_callback(events_mod(Mod_Code.Ctrl, (mods & glfw.MOD_CONTROL) != 0))
+    app->event_callback(events_mod(Mod_Code.Shift, (mods & glfw.MOD_SHIFT) != 0))
+    app->event_callback(events_mod(Mod_Code.Alt, (mods & glfw.MOD_ALT) != 0))
+    app->event_callback(events_mod(Mod_Code.Super, (mods & glfw.MOD_SUPER) != 0))
+}
+
+@(private)
 key_callback :: proc "cdecl" (window: glfw.WindowHandle, key, scancode, action, mods: i32) {
     context = gcontext
     app := cast(^App)glfw.GetWindowUserPointer(window)
@@ -210,6 +220,8 @@ key_callback :: proc "cdecl" (window: glfw.WindowHandle, key, scancode, action, 
     if action == glfw.REPEAT {
         return
     }
+
+    key_modifiers(app, mods)
 
     event := events_key(key, (action == glfw.PRESS))
     app->event_callback(event)
@@ -232,46 +244,60 @@ button_callback :: proc "cdecl" (window: glfw.WindowHandle, button, action, mods
         return
     }
 
-    event := events_button(button, (action == glfw.PRESS))
-    app->event_callback(event)
+    key_modifiers(app, mods)
+    app->event_callback(events_button(button, (action == glfw.PRESS)))
 }
 
 @(private)
 cursor_pos_callback :: proc "cdecl" (window: glfw.WindowHandle, xpos, ypos: f64) {
     context = gcontext
     app := cast(^App)glfw.GetWindowUserPointer(window)
-    event := events_mouse_moved(Vec2{f32(xpos), f32(ypos)})
-    app->event_callback(event)
+    app->event_callback(events_mouse_moved(Vec2{f32(xpos), f32(ypos)}))
+}
+
+@(private)
+mouse_enter_callback :: proc "cdecl" (window: glfw.WindowHandle, entered: i32) {
+    context = gcontext
+    app := cast(^App)glfw.GetWindowUserPointer(window)
+
+    if entered != 0 {
+        app->event_callback(events_mouse_moved(ui.last_valid_mouse_pos))
+    } else {
+        app->event_callback(events_mouse_moved(Vec2{-math.F32_MAX, -math.F32_MAX}))
+    }
 }
 
 @(private)
 window_size_callback :: proc "cdecl" (window: glfw.WindowHandle, width, height: i32) {
     context = gcontext
     app := cast(^App)glfw.GetWindowUserPointer(window)
-    event := events_window_resize(Vec2{f32(width), f32(height)})
-    app->event_callback(event)
+    app->event_callback(events_window_resize(Vec2{f32(width), f32(height)}))
 }
 
 @(private)
 window_pos_callback :: proc "cdecl" (window: glfw.WindowHandle, width, height: i32) {
     context = gcontext
     app := cast(^App)glfw.GetWindowUserPointer(window)
-    event := events_window_moved(Vec2{f32(width), f32(height)})
-    app->event_callback(event)
+    app->event_callback(events_window_moved(Vec2{f32(width), f32(height)}))
 }
 
 @(private)
 window_close_callback :: proc "cdecl" (window: glfw.WindowHandle) {
     context = gcontext
     app := cast(^App)glfw.GetWindowUserPointer(window)
-    event := events_window_close(0)
-    app->event_callback(event)
+    app->event_callback(events_window_close(0))
 }
 
 @(private)
 window_focus_callback :: proc "cdecl" (window: glfw.WindowHandle, iconified: i32) {
     context = gcontext
     app := cast(^App)glfw.GetWindowUserPointer(window)
-    event := events_window_focus(b32(iconified))
-    app->event_callback(event)
+    app->event_callback(events_window_focus(b32(iconified)))
+}
+
+@(private)
+char_callback :: proc "cdecl" (window: glfw.WindowHandle, c: rune) {
+    context = gcontext
+    app := cast(^App)glfw.GetWindowUserPointer(window)
+    app->event_callback(events_input_character(c))
 }

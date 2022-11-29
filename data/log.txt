@@ -1,37 +1,30 @@
-[DEBUG] --- [2022-11-29 12:02:10] [app.odin:55:app_init()] Debug Creating window...
-[DEBUG] --- [2022-11-29 12:02:11] [shader.odin:36:shader_load()] Shader load request at  0.769
-[DEBUG] --- [2022-11-29 12:02:11] [shader.odin:233:shader_load_task()] Shader load request succeeded at  0.790
-[DEBUG] --- [2022-11-29 12:02:11] [font.odin:75:font_load()] Font load request at  0.795
-[DEBUG] --- [2022-11-29 12:02:11] [font.odin:268:font_load_task()] Font load request succeeded at  1.584
-[DEBUG] --- [2022-11-29 12:02:11] [texture.odin:41:texture_load()] Font load request at  1.592
-.692
-e with the following errors:
-ERROR: 0:73: error(#172) Too many arguments constructor
-ERROR: error(#273) 1 compilation errors.  No code generated
-
-
-[ERROR] --- [2022-11-27 15:37:41] [shader.odin:186:shader_upload()] Fragment shader(s) were not successfully compiled before glLinkProgram() was called.  Link failed. 
-
-[DEBUG] --- [2022-11-27 15:37:41] [texture.odin:41:texture_load()] Font load request at  0.906
-xture.odin:41:texture_load()] Font load request at  1.184
-essfully compiled before glLinkProgram() was called.  Link failed. 
-
-[DEBUG] --- [2022-11-27 15:24:27] [texture.odin:41:texture_load()] Font load request at  1.127
-#273) 8 compilation errors.  No code generated
-
-
-[ERROR] --- [2022-11-27 11:36:49] [shader.odin:186:shader_upload()] Vertex shader(s) were not successfully compiled before glLinkProgram() was called.  Link failed. 
-
-[DEBUG] --- [2022-11-27 11:36:49] [texture.odin:41:texture_load()] Font load request at  0.657
-. 
-[DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  13 bytes. 
-[DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  13 bytes. 
-[DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  14 bytes. 
-[DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  14 bytes. 
-[DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  14 bytes. 
-[DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  14 bytes. 
-[DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(269:51) leaked  6 bytes. 
-[DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  13 bytes. 
+[DEBUG] --- [2022-11-29 14:21:19] [app.odin:55:app_init()] Debug Creating window...
+[DEBUG] --- [2022-11-29 14:21:20] [shader.odin:36:shader_load()] Shader load request at  0.444
+[DEBUG] --- [2022-11-29 14:21:20] [shader.odin:233:shader_load_task()] Shader load request succeeded at  0.455
+[DEBUG] --- [2022-11-29 14:21:20] [font.odin:75:font_load()] Font load request at  0.457
+[DEBUG] --- [2022-11-29 14:21:20] [font.odin:268:font_load_task()] Font load request succeeded at  0.921
+[DEBUG] --- [2022-11-29 14:21:20] [texture.odin:41:texture_load()] Font load request at  0.925
+[DEBUG] --- [2022-11-29 14:20:46] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:46] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:49] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:49] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:29] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:29] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:29] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:29] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:30] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:30] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:30] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:30] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:31] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:31] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:31] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:31] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:31] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:32] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:32] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[DEBUG] --- [2022-11-29 14:20:32] [key_codes.odin:299:key_code_from_glfw()] Unknown key:  348
+[2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  13 bytes. 
 [DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  14 bytes. 
 [DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/joodit/code/assets/shader.odin(261:63) leaked  13 bytes. 
 [DEBUG] --- [2022-11-22 15:26:49] [main.odin:70:main()] H:/My Drive/work/Odin/core/log/multi_logger.odin(10:17) leaked  64 bytes. 

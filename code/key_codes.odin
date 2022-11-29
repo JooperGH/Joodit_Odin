@@ -1,5 +1,6 @@
 package main
 
+import "core:log"
 import "vendor:glfw"
 
 Mod_Code :: enum {
@@ -29,6 +30,7 @@ Button_Code :: enum {
 }
 
 Key_Code :: enum {
+    Unknown     ,
     First       ,
     Space       ,
     Apostrophe  ,
@@ -139,13 +141,12 @@ Key_Code :: enum {
     KpAdd       ,
     KpEnter     ,
     KpEqual     ,
-    LeftShift   ,
-    LeftCtrl    ,
-    LeftAlt     ,
-    LeftSuper   ,
+    Shift   ,
+    Ctrl    ,
+    Alt     ,
+    Super   ,
     Menu        ,
     Last        ,
-    Unknown     ,
 } 
 
 button_code_from_glfw :: #force_inline proc(glfw_button: i32) -> Button_Code {
@@ -285,12 +286,18 @@ key_code_from_glfw :: #force_inline proc(glfw_key: i32) -> Key_Code {
         case glfw.KEY_KP_ADD:               return .KpAdd                         
         case glfw.KEY_KP_ENTER:             return .KpEnter                         
         case glfw.KEY_KP_EQUAL:             return .KpEqual                         
-        case glfw.KEY_LEFT_SHIFT:           return .LeftShift                         
-        case glfw.KEY_LEFT_CONTROL:         return .LeftCtrl                            
-        case glfw.KEY_LEFT_ALT:             return .LeftAlt                         
-        case glfw.KEY_LEFT_SUPER:           return .LeftSuper                         
+        case glfw.KEY_LEFT_SHIFT:           return .Shift                         
+        case glfw.KEY_LEFT_CONTROL:         return .Ctrl                            
+        case glfw.KEY_LEFT_ALT:             return .Alt                         
+        case glfw.KEY_LEFT_SUPER:           return .Super                         
+        case glfw.KEY_RIGHT_SHIFT:          return .Shift                         
+        case glfw.KEY_RIGHT_CONTROL:        return .Ctrl                            
+        case glfw.KEY_RIGHT_ALT:            return .Alt                         
+        case glfw.KEY_RIGHT_SUPER:          return .Super                        
         case glfw.KEY_MENU:                 return .Menu    
-        case glfw.KEY_UNKNOWN:              return .Unknown                      
+        case:
+            log.debug("Unknown key: ", glfw.KEY_MENU)                               
+            return .Unknown                      
     }
     return Key_Code.Unknown
 }

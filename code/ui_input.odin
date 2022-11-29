@@ -32,28 +32,13 @@ ui_init_input :: proc() {
     ui.mouse_dpos = {0.0, 0.0}
     ui.scroll_pos = {0.0, 0.0}
     ui.focused = true
+
+    ui.events = make([dynamic]^Event, 0, 128)
+    ui.text = make([dynamic]rune, 0, 128)
 }
 
 ui_add_event :: proc(e: ^Event) {
-    if ui.events == nil {
-        ui.events = make([dynamic]^Event, 0, 128)
-    }
-
-    #partial switch v in e.type {
-        case Key_Event:
-            assert(v.key_code > Key_Code.First && v.key_code < Key_Code.Last)
-            append(&ui.events, e)
-        case Mod_Event:
-            assert(v.mod_code > Mod_Code.First && v.mod_code < Mod_Code.Last)
-            append(&ui.events, e)
-        case Button_Event:          
-            assert(v.button > Button_Code.First && v.button < Button_Code.Last)
-            append(&ui.events, e)
-        case Mouse_Moved_Event:
-            append(&ui.events, e)
-        case Mouse_Scrolled_Event:
-            append(&ui.events, e)
-    }
+    append(&ui.events, e)
 }
 
 @(private)
@@ -86,13 +71,25 @@ ui_update_input_events :: proc() {
         case Mod_Event:
             ui.mods[v.mod_code].down = v.down
         case Mouse_Moved_Event:
+            ui.last_valid_mouse_pos = v.pos
+            ui.prev_mouse_pos = ui.mouse_pos
             ui.mouse_pos = v.pos
+            ui.mouse_dpos = ui.mouse_pos - ui.prev_mouse_pos
             mouse_moved = true
         case Mouse_Scrolled_Event:
             ui.scroll_pos += v.scroll
             mouse_scrolled = true
+        case Input_Character_Event:
+            append(&ui.text, v.c)
         }
+        
     }
+
+    ui.mods_set = {}
+    if ui.mods[Mod_Code.Ctrl].down do ui.mods_set += {.Ctrl}
+    if ui.mods[Mod_Code.Shift].down do ui.mods_set += {.Shift}
+    if ui.mods[Mod_Code.Alt].down do ui.mods_set += {.Alt}
+    if ui.mods[Mod_Code.Super].down do ui.mods_set += {.Super}
 
     clear(&ui.events)
 }
