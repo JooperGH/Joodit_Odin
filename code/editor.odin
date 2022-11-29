@@ -6,6 +6,7 @@ import "core:thread"
 import "core:runtime"
 import "core:strings"
 import "core:math/linalg/glsl"
+import "vendor:glfw"
 
 Editor_Layer :: struct {
 	using layer: Layer,
@@ -38,15 +39,6 @@ editor_layer_on_update :: proc(data: rawptr, app: ^App) {
 
 editor_layer_on_render :: proc(data: rawptr, app: ^App) {
 	editor := cast(^Editor_Layer)data
-
-	if ui_button("Click").hovered {
-		fmt.println("clicked!")
-	}
-
-	if ui.keys[Key_Code.A] {
-		fmt.println(ui.mouse_pos)
-	}
-
 
 	frame_time_text := format_string("Frame Time: %.2f ms", app.dt*1000.0)
 	frame_time_pos := Vec2{20, 20}

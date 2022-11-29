@@ -1,9 +1,9 @@
-[DEBUG] --- [2022-11-28 16:56:19] [app.odin:54:app_init()] Debug Creating window...
-[DEBUG] --- [2022-11-28 16:56:19] [shader.odin:36:shader_load()] Shader load request at  0.396
-[DEBUG] --- [2022-11-28 16:56:19] [shader.odin:233:shader_load_task()] Shader load request succeeded at  0.404
-[DEBUG] --- [2022-11-28 16:56:19] [font.odin:75:font_load()] Font load request at  0.406
-[DEBUG] --- [2022-11-28 16:56:20] [font.odin:268:font_load_task()] Font load request succeeded at  0.991
-[DEBUG] --- [2022-11-28 16:56:20] [texture.odin:41:texture_load()] Font load request at  0.995
+[DEBUG] --- [2022-11-29 12:02:10] [app.odin:55:app_init()] Debug Creating window...
+[DEBUG] --- [2022-11-29 12:02:11] [shader.odin:36:shader_load()] Shader load request at  0.769
+[DEBUG] --- [2022-11-29 12:02:11] [shader.odin:233:shader_load_task()] Shader load request succeeded at  0.790
+[DEBUG] --- [2022-11-29 12:02:11] [font.odin:75:font_load()] Font load request at  0.795
+[DEBUG] --- [2022-11-29 12:02:11] [font.odin:268:font_load_task()] Font load request succeeded at  1.584
+[DEBUG] --- [2022-11-29 12:02:11] [texture.odin:41:texture_load()] Font load request at  1.592
 .692
 e with the following errors:
 ERROR: 0:73: error(#172) Too many arguments constructor
