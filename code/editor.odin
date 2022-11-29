@@ -5,9 +5,8 @@ import "core:log"
 import "core:thread"
 import "core:runtime"
 import "core:strings"
-import "vendor:glfw"
-import gl "vendor:OpenGL"
 import "core:math/linalg/glsl"
+import "vendor:glfw"
 
 Editor_Layer :: struct {
 	using layer: Layer,
@@ -30,34 +29,8 @@ editor_layer_on_detach :: proc(data: rawptr, app: ^App) {
 	free(editor)
 }
 
-editor_on_mouse_moved :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
-	editor := cast(^Editor_Layer)data
-	return false
-}
-
-editor_on_key_pressed :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
-	editor := cast(^Editor_Layer)data
-	kp := e.type.(Key_Pressed_Event)
-
-	if kp.key_code == glfw.KEY_E {
-		editor.size += 60.0 * app.dt
-	}
-
-	if kp.key_code == glfw.KEY_Q {
-		editor.size -= 60.0 * app.dt
-	}
-
-	if editor.size <= 1.0 {
-		editor.size = 1.0
-	}
-
-	return false
-}
-
 editor_layer_on_event :: proc(data: rawptr, app: ^App, e: ^Event) {
 	editor := cast(^Editor_Layer)data
-	event_dispatch(data, e, app, Mouse_Moved_Event, editor_on_mouse_moved)
-	event_dispatch(data, e, app, Key_Pressed_Event, editor_on_key_pressed)
 }
 
 editor_layer_on_update :: proc(data: rawptr, app: ^App) {

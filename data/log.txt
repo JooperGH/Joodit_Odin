@@ -1,10 +1,11 @@
-[DEBUG] --- [2022-11-27 17:29:21] [app.odin:55:app_init()] Debug Creating window...
-[DEBUG] --- [2022-11-27 17:29:21] [shader.odin:36:shader_load()] Shader load request at  0.314
-[DEBUG] --- [2022-11-27 17:29:21] [shader.odin:233:shader_load_task()] Shader load request succeeded at  0.323
-[DEBUG] --- [2022-11-27 17:29:21] [font.odin:75:font_load()] Font load request at  0.325
-[DEBUG] --- [2022-11-27 17:29:22] [font.odin:268:font_load_task()] Font load request succeeded at  0.788
-[DEBUG] --- [2022-11-27 17:29:22] [texture.odin:41:texture_load()] Font load request at  0.793
-ompile with the following errors:
+[DEBUG] --- [2022-11-29 12:02:10] [app.odin:55:app_init()] Debug Creating window...
+[DEBUG] --- [2022-11-29 12:02:11] [shader.odin:36:shader_load()] Shader load request at  0.769
+[DEBUG] --- [2022-11-29 12:02:11] [shader.odin:233:shader_load_task()] Shader load request succeeded at  0.790
+[DEBUG] --- [2022-11-29 12:02:11] [font.odin:75:font_load()] Font load request at  0.795
+[DEBUG] --- [2022-11-29 12:02:11] [font.odin:268:font_load_task()] Font load request succeeded at  1.584
+[DEBUG] --- [2022-11-29 12:02:11] [texture.odin:41:texture_load()] Font load request at  1.592
+.692
+e with the following errors:
 ERROR: 0:73: error(#172) Too many arguments constructor
 ERROR: error(#273) 1 compilation errors.  No code generated
 
