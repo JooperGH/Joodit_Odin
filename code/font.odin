@@ -38,7 +38,8 @@ Font :: struct {
     ranges: []Font_Glyph_Range,
     glyphs: map[rune]Font_Glyph,
     baseline: f32,
-    line_advance: f32, 
+    line_advance: f32,
+    padding: f32,
 
     load_state: Load_State,
 } 
@@ -129,15 +130,15 @@ font_bitmap_raster :: proc(font: ^Font) -> []Font_Builder_Glyph {
 
 @(private)
 font_sdf_raster :: proc(font: ^Font) -> []Font_Builder_Glyph {
-    padding : i32 = 16
-    pixel_dist_scale : f32 = f32(127)/f32(padding)
+    font.padding = 16.0
+    pixel_dist_scale : f32 = f32(127)/f32(font.padding)
 
     g := 0
     builder_glyphs := make([]Font_Builder_Glyph, font_glyph_range_count(font.ranges))
     for range in font.ranges {
         for r := range[0]; r <= range[1]; r += 1 {
             builder_glyphs[g].codepoint = cast(rune)r
-            builder_glyphs[g].bitmap = stbtt.GetCodepointSDF(font.data, font.scale, r, padding, 180, pixel_dist_scale, 
+            builder_glyphs[g].bitmap = stbtt.GetCodepointSDF(font.data, font.scale, r, i32(font.padding), 180, pixel_dist_scale, 
                                                  &builder_glyphs[g].box.z, &builder_glyphs[g].box.w, 
                                                  &builder_glyphs[g].offset.x, &builder_glyphs[g].offset.y)
             g += 1
@@ -191,13 +192,13 @@ font_build_atlas :: proc(font: ^Font, glyphs: []Font_Builder_Glyph) {
             stbtt.FindGlyphIndex(font.data, built_glyph.codepoint),
             f32(adv)*font.scale, 
             f32(lsb)*font.scale,
-            [2]f32{f32(built_glyph.offset.x), f32(built_glyph.offset.y)},
-            [2]f32{f32(built_glyph.box.z), f32(built_glyph.box.w)},
+            [2]f32{f32(built_glyph.offset.x) + font.padding, f32(built_glyph.offset.y)},
+            [2]f32{f32(built_glyph.box.z) - font.padding, f32(built_glyph.box.w) - font.padding},
             [4]f32{
-                f32(built_glyph.box.x)/f32(font.texture.w),
-                f32(built_glyph.box.y+built_glyph.box.w)/f32(font.texture.h),
-                f32(built_glyph.box.x+built_glyph.box.z)/f32(font.texture.w),
-                f32(built_glyph.box.y)/f32(font.texture.h),
+                (f32(built_glyph.box.x) + font.padding/2)/f32(font.texture.w),
+                (f32(built_glyph.box.y+built_glyph.box.w)-font.padding/2)/f32(font.texture.h),
+                (f32(built_glyph.box.x+built_glyph.box.z)-font.padding/2)/f32(font.texture.w),
+                (f32(built_glyph.box.y) + font.padding/2)/f32(font.texture.h),
             },
         }
 

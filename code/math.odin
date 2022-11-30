@@ -30,3 +30,11 @@ rect_union :: #force_inline proc(a: Rect, b: Rect) -> Rect {
             max(a.z, b.z),
             max(a.w, b.w)}
 }
+
+rect_point_inside :: #force_inline proc(a: Rect, b: Vec2) -> b32 {
+    return b.x >= a.x && b.x <= a.z && b.y >= a.y && b.y <= a.w 
+}
+
+rect_grow :: #force_inline proc(a: Rect, b: Vec2) -> Rect {
+    return {a.x - b.x*0.5, a.y - b.y*0.5, a.z + b.x*0.5, a.w + b.y*0.5}
+}

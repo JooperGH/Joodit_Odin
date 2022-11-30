@@ -9,13 +9,14 @@ import "core:math"
 
 import "vendor:glfw"
 import gl "vendor:OpenGL"
+import stbi "vendor:stb/image"
 
 gcontext: runtime.Context
 
 App :: struct {
     title: string,
-    width: i32,
-    height: i32,
+    screen_size: Vec2,
+    window_size: Vec2,
     dt: f32,
     focused: b32,
 
@@ -31,8 +32,7 @@ App :: struct {
 Event_Fn :: #type proc(rawptr, ^App, ^Event) -> b32
 
 app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720) {
-    app.width = width
-    app.height = height
+    app.window_size = {f32(width), f32(height)}
     app.title = title
     app.layers = make([dynamic]^Layer, 0, 4)
 
@@ -53,11 +53,18 @@ app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720)
 	}
     
     log.debug(log.Level.Debug, "Creating window...")
-	app.window = glfw.CreateWindow(app.width, app.height, strings.clone_to_cstring(app.title, context.temp_allocator), nil, nil)
+    
+    monitor := glfw.GetPrimaryMonitor()
+    video_mode := glfw.GetVideoMode(monitor)
+	app.window = glfw.CreateWindow(width, height, strings.clone_to_cstring(app.title, context.temp_allocator), nil, nil)
     if app.window == nil {
 		log.error("Failed to create window.")
 		return
 	}
+
+    app.screen_size = {f32(video_mode.width), f32(video_mode.height)}
+
+    app_set_window_pos(app, {f32(video_mode.width/2) - app.window_size.x/2, f32(video_mode.height/2) - app.window_size.y/2})
 
 	glfw.MakeContextCurrent(app.window)
 	glfw.SwapInterval(1)
@@ -78,10 +85,25 @@ app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720)
 
 	gl.load_up_to(gl_major, gl_minor, glfw.gl_set_proc_address)
     
+    image: [1]glfw.Image 
+    image[0].pixels = stbi.load("textures/joodit_icon_quarter.png", &image[0].width, &image[0].height, nil, 4)
+    glfw.SetWindowIcon(app.window, image[:])
+    stbi.image_free(image[0].pixels)
+
     thread.pool_init(&app.pool, context.allocator, 3)
     thread.pool_start(&app.pool)
 
     app.running = true
+}
+
+app_get_window_pos :: proc(app: ^App) -> Vec2 {
+    wpos_x, wpos_y: i32 = glfw.GetWindowPos(app.window)
+    return {f32(wpos_x), f32(wpos_y)}
+}
+
+app_set_window_pos :: proc(app: ^App, pos: Vec2) {
+    wpos_x, wpos_y: i32 = i32(pos.x), i32(pos.y)
+    glfw.SetWindowPos(app.window, wpos_x, wpos_y)
 }
 
 app_push_task :: proc(app: ^App, procedure: thread.Task_Proc, data: rawptr) {
@@ -164,6 +186,17 @@ event_dispatch :: proc(data: rawptr, e: ^Event, app: ^App, $T: typeid, fn: Event
     return false
 }   
 
+on_key :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
+    be, ok := e.type.(Key_Event)
+    if be.key_code == Key_Code.Escape && ok {
+        if be.down {
+            app.running = false
+        }
+    }
+
+    return true
+}
+
 on_window_close :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
     app.running = false
     return true
@@ -172,8 +205,9 @@ on_window_close :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
 on_window_resized :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
     be, ok := e.type.(Window_Resized_Event)
     if ok {
-        app.width = i32(be.size.x)
-        app.height = i32(be.size.y)
+        app.window_size.x = be.size.x
+        app.window_size.y = be.size.y
+        gl.Viewport(0, 0, i32(app.window_size.x), i32(app.window_size.y))
     }
     return true
 }
@@ -190,6 +224,7 @@ on_event :: proc(app: ^App, e: ^Event) {
     event_dispatch(nil, e, app, Window_Close_Event, on_window_close)
     event_dispatch(nil, e, app, Window_Resized_Event, on_window_resized)
     event_dispatch(nil, e, app, Window_Focus_Event, on_window_focus)
+    event_dispatch(nil, e, app, Key_Event, on_key)
 
     if .App not_in e.category {
         ui_add_event(e)
