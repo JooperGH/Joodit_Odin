@@ -10,7 +10,7 @@ import gl "vendor:OpenGL"
 
 _main :: proc() {
 	app := new(App)
-	app_init(app, "Jedit", 1920, 1080)
+	app_init(app, "Joodit", 1920, 1080)
 	defer app_shutdown(app)
 
 	renderer_init(app)
@@ -34,8 +34,8 @@ _main :: proc() {
 	app_calc_dt(app)
 	for app_running(app) {
 		app_begin_frame(app)
-		ui_update_input_events()
 		
+		ui_begin()
 		for i := 0; i < len(app.layers); i += 1 {
 			layer := app.layers[i]
 			layer.on_update(layer.data, app)
@@ -46,6 +46,7 @@ _main :: proc() {
 			layer := app.layers[i]
 			layer.on_render(layer.data, app)
 		}
+		ui_end()
 		renderer_end()
 
 		app_end_frame(app)

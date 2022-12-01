@@ -42,7 +42,6 @@ Renderer :: struct {
     texture_data: []u32,
     
     shader: ^Shader,
-    font: ^Font,
 }
 
 renderer_init :: proc(app: ^App) {
@@ -88,7 +87,6 @@ renderer_init :: proc(app: ^App) {
     gl.BindVertexArray(0)
 
     shader_load(&gl_renderer.shader, app, "shaders/default.glsl", false)
-    font_load(&gl_renderer.font, app, "fonts/OpenSans-Regular.ttf", 40, Font_Glyph_Range_Default, Font_Raster_Type.SDF, 2048, 2048, false)
     
     if shader_validate(gl_renderer.shader) {
         shader_bind(gl_renderer.shader)
@@ -109,7 +107,6 @@ renderer_free :: proc() {
     delete(gl_renderer.texture_data)
 
     shader_free(&gl_renderer.shader)
-    font_free(&gl_renderer.font)
 }
 
 @(private)
@@ -214,7 +211,7 @@ render_rect :: proc(rect: Rect, colors: [4]Color, roundness: f32, softness: f32,
     renderer_add_quad(&quad)
 }
 
-render_texture :: proc(texture: ^Texture, rect: Rect, color: Color, roundness: f32 = 0.0, softness: f32 = 2.0, border_thickness: f32 = 0.0, border_color: Color = {0.0, 0.0, 0.0, 1.0}) {
+render_texture :: proc(texture: ^Texture, rect: Rect, color: Color, roundness: f32 = 0.0, softness: f32 = 1.0, border_thickness: f32 = 0.0, border_color: Color = {0.0, 0.0, 0.0, 1.0}) {
     if !texture_validate(texture) {
         return
     }
@@ -279,18 +276,12 @@ render_texture :: proc(texture: ^Texture, rect: Rect, color: Color, roundness: f
     renderer_add_quad(&quad)
 }
 
-render_text :: proc(text: string, size: f32, pos: Vec2, options: Text_Render_Options, color: Vec4) -> Rect {
-    font := gl_renderer.font
+render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Text_Render_Options, color: Vec4) -> Rect {
+    result := Rect{pos.x, pos.y, pos.x, pos.y}
     if !font_validate(font) {
         return {}
     }
-
-    rect := text_rect(text, size, pos)
-    resolved_rect := text_rect_options_resolve(options, rect)
-    options_offset := resolved_rect.xy - rect.xy 
-
-    render_mode := font_get_render_mode(gl_renderer.font)
-
+    
     slot : int = -1
     for i := 0; i < int(gl_renderer.texture_slot); i += 1 {
         if gl_renderer.texture_data[i] == font.texture.handle {
@@ -305,9 +296,10 @@ render_text :: proc(text: string, size: f32, pos: Vec2, options: Text_Render_Opt
         gl_renderer.texture_slot += 1
     }
     
+    first_r := true
+    render_mode := font_get_render_mode(font)
     vertices := [4]Vertex{}
-    
-    cpos := pos + options_offset
+    cpos := pos + text_rect_options_offset(options, text_dim(font, text, size))
     for r := 0; r < len(text); r += 1 {
         rune_a := rune(text[r])
         rune_b := r < len(text)-2 ? rune(text[r+1]) : rune(-1)
@@ -317,15 +309,21 @@ render_text :: proc(text: string, size: f32, pos: Vec2, options: Text_Render_Opt
         if ok {
             scaling_factor := (size/f32(font.size))
             
-            x := cpos.x + glyph.offset.x*scaling_factor
+            x := cpos.x + glyph.offset.x*scaling_factor - (first_r ? glyph.lsb*scaling_factor : 0.0)
             y := cpos.y - glyph.offset.y*scaling_factor
 
             eff_dim := glyph.dim * scaling_factor
 
             rect := [4]f32{x, y, x+eff_dim.x, y-eff_dim.y}
+            if first_r {
+                result = rect
+                first_r = false
+            } else {
+                result = rect_union(result, rect)
+            }
 
             width : f32 = 0.7
-            edge : f32 = 0.025
+            edge : f32 = 0.04
             quad := [4]Vertex{
                 {
                     { -1, -1 },
@@ -379,7 +377,7 @@ render_text :: proc(text: string, size: f32, pos: Vec2, options: Text_Render_Opt
         }
     }
 
-    return resolved_rect
+    return result
 }
 
 renderer_begin :: proc() {
@@ -389,11 +387,14 @@ renderer_begin :: proc() {
 }
 
 renderer_end :: proc() {
-    if !shader_validate(gl_renderer.shader) || !font_validate(gl_renderer.font) {
+    if !shader_validate(gl_renderer.shader){
         return
     }
 
-    proj := la.mat4Ortho3d(0, f32(gl_renderer.app.width), 0, f32(gl_renderer.app.height), -1.0, 1.0)
+    proj := la.mat4Ortho3d(0, f32(gl_renderer.app.window_size.x), 0, f32(gl_renderer.app.window_size.y), -1.0, 1.0)
+
+    gl.ClearColor(0.1, 0.1, 0.1, 1.0)
+    gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
     gl.BindVertexArray(gl_renderer.vao)
     gl.BindBuffer(gl.ARRAY_BUFFER, gl_renderer.vbo)
@@ -402,9 +403,6 @@ renderer_end :: proc() {
 	gl.Enable(gl.BLEND)
 	gl.Enable(gl.MULTISAMPLE)
 	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)  
-
-    gl.ClearColor(0.1, 0.1, 0.1, 1.0)
-    gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 
     shader_bind(gl_renderer.shader)
     shader_set(gl_renderer.shader, "u_proj", &proj)

@@ -3,3 +3,4 @@ build/
 ols.json
 tests.exe
 *.todool
+log.txt

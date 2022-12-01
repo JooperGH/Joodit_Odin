@@ -1,20 +1,5 @@
 package main
 
-Event_Type :: enum {
-    App_Update,
-    App_Render,
-    Window_Close,
-    Window_Resize,
-    Window_Moved,
-    Window_Focus,
-    Key_Pressed,
-    Key_Released,
-    Mouse_Pressed,
-    Mouse_Released,
-    Mouse_Moved,
-    Mouse_Scrolled,
-}
-
 Event_Category :: enum {
     App,
     Window,
@@ -140,11 +125,18 @@ Mod_Event :: struct {
     mod_code: Mod_Code,
     down: b32,
 }
-events_mod :: proc(mod_code: i32, down: b32) -> ^Event {
+events_mod_glfw :: proc(mod_code: i32, down: b32) -> ^Event {
     event := new(Event, context.temp_allocator)
     event.handled = false
     event.category = {.Keyboard, .Input}
     event.type = Mod_Event{mod_code_from_glfw(mod_code), down}
+    return event
+}
+events_mod :: proc(mod_code: Mod_Code, down: b32) -> ^Event {
+    event := new(Event, context.temp_allocator)
+    event.handled = false
+    event.category = {.Keyboard, .Input}
+    event.type = Mod_Event{mod_code, down}
     return event
 }
 
@@ -170,6 +162,17 @@ events_mouse_scrolled :: proc(scroll: Vec2) -> ^Event {
     return event
 }
 
+Input_Character_Event :: struct {
+    c: rune,
+}
+events_input_character :: proc(c: rune) -> ^Event {
+    event := new(Event, context.temp_allocator)
+    event.handled = false
+    event.category = {.Mouse, .Input}
+    event.type = Input_Character_Event{c}
+    return event
+}
+
 Event :: struct {
     handled: b32,
     category: bit_set[Event_Category],
@@ -188,5 +191,6 @@ Event :: struct {
         Mod_Event,
         Mouse_Moved_Event,
         Mouse_Scrolled_Event,
+        Input_Character_Event,
     },
 }
