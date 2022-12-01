@@ -56,7 +56,7 @@ app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720)
     
     monitor := glfw.GetPrimaryMonitor()
     video_mode := glfw.GetVideoMode(monitor)
-    //glfw.WindowHint(glfw.DECORATED, 0)
+    glfw.WindowHint(glfw.DECORATED, 0)
 	app.window = glfw.CreateWindow(width, height, strings.clone_to_cstring(app.title, context.temp_allocator), nil, nil)
     if app.window == nil {
 		log.error("Failed to create window.")
