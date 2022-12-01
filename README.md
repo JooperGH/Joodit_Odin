@@ -1,7 +1,7 @@
 <p align="center">
     <img src="misc/joodit.png" alt="Joodit logo" style="width:65%">
     <br/>
-   The Text Editor playground.
+   The Text Editor.
     <br/>
     <br/>
     <a href="https://github.com/JooperGH/Joodit/releases/latest">
@@ -17,4 +17,7 @@
 </p>
 
 # Joodit
-
+<p align="center">
+    Current progress 
+    <img src="misc/joodit_wip.png" alt="Joodit wip" style="width:100%">
+</p>
