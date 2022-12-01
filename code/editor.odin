@@ -11,18 +11,10 @@ import "vendor:glfw"
 
 Editor_Layer :: struct {
 	using layer: Layer,
-
-	tex: ^Texture,
-
-	size: f32, 
 }
 
 editor_layer_on_attach :: proc(data: rawptr, app: ^App) {
 	editor := cast(^Editor_Layer)data
-
-	texture_load(&editor.tex, app, "textures/wood.png")
-
-	editor.size = 30.0
 }
 
 editor_layer_on_detach :: proc(data: rawptr, app: ^App) {
@@ -37,58 +29,53 @@ editor_layer_on_event :: proc(data: rawptr, app: ^App, e: ^Event) {
 editor_layer_on_update :: proc(data: rawptr, app: ^App) {
 	editor := cast(^Editor_Layer)data
 
-	ui_text(format_string("Frame time: %.2f ms###Frame Timer 1", app.dt*1000.0)) 
+	i := ui_bar("Menu Bar")
+	i.widget.style.gradient = false
+
+	ui_push_parent(i.widget)
+	ui_push_flags({.FillX})
+	
+	ui_button("File")
+	ui_button("Window")
+	ui_button("Panel")
+	ui_button("View")
+	ui_button("Control")
+	i = ui_button("U")
+	if i.left_clicked {
+		ui.font_size += 1.0
+	}
+	
+	i = ui_button("D")
+	if i.left_clicked {
+		ui.font_size -= 1.0
+	}
+
+	ui_spacer()	
+	ui_text(format_string("Font Size: %d###FontSizeText", i32(ui.font_size)))
+	i = ui_button("M")
+	i.widget.style.gradient = false
+	i.widget.style.colors[.Bg].g *= 2.0
+	i = ui_button("_")
+	i.widget.style.gradient = false
+	i.widget.style.colors[.Bg].rg *= 2.0
+	i = ui_button("X")
+	i.widget.style.gradient = false
+	i.widget.style.colors[.Bg] = {0.6, 0.1, 0.1, 1.0}
+	if i.left_clicked {
+		app.running = false
+	}
+	ui_pop_flags()
+	ui_pop_parent()
+
+	i = ui_panel("Main Panel")
+	ui_push_parent(i.widget)
+	ui_push_flags({.FillX})
+	ui_text(format_string("%s###TextInput", utf8.runes_to_string(ui.text[:], ui.temp_allocator)))
+	ui_pop_flags()
+	ui_pop_parent()
+
 }
 
 editor_layer_on_render :: proc(data: rawptr, app: ^App) {
 	editor := cast(^Editor_Layer)data
-
-	/*
-	frame_time_text := format_string("Frame Time: %.2f ms", app.dt*1000.0)
-	frame_time_pos := Vec2{400, 400}
-	frame_time_rect := text_rect(ui.font, frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Center})
-	render(frame_time_rect, Color{0.0, 0.0, 0.0, 0.0}, 0.0, 0.0, 1.0, Color{1, 0, 0, 1})
-	render(ui.font, frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Ver_Top, .Hor_Right}, Color{1.0, 1.0, 1.0, 1.0})
-	
-	sentinel := ui.root.first
-	for sentinel != nil {
-		if .DrawBackground in sentinel.flags {
-			//render(sentinel.rect, Color{0.15, 0.15, 0.15, 1.0})
-		}
-		if .DrawBorder in sentinel.flags {
-			//render(sentinel.rect, Color{0, 0, 0, 0}, 0, 0, 1.0, Color{0.8, 0.8, 0.8, 1.0})
-		}
-		if .DrawText in sentinel.flags {
-			render(ui.font, frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Ver_Top, .Hor_Right}, Color{1.0, 1.0, 1.0, 1.0})
-			//render(ui.font, sentinel.str, editor.size, rect_center(sentinel.rect), Text_Render_Options{.Center}, Color{1.0, 1.0, 1.0, 1.0})
-		}
-		
-		sentinel = sentinel.next
-	}
-	
-	frame_time_pos.y += text_line_advance(ui.font, editor.size)
-	frame_time_rect = text_rect(ui.font, frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Center})
-	render(frame_time_rect, Color{0.0, 0.0, 0.0, 0.0}, 0.0, 0.0, 1.0, Color{1, 0, 0, 1})
-	render(ui.font, frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Ver_Top, .Center}, Color{1.0, 1.0, 1.0, 1.0})
-	
-	frame_time_pos.y += text_line_advance(ui.font, editor.size)
-	frame_time_rect = text_rect(ui.font, frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Center})
-	render(frame_time_rect, Color{0.0, 0.0, 0.0, 0.0}, 0.0, 0.0, 1.0, Color{1, 0, 0, 1})
-	render(ui.font, frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Ver_Top, .Hor_Left}, Color{1.0, 1.0, 1.0, 1.0})
-	
-	frame_time_text = format_string("Mouse Pos: %.2f, %.2f", ui.mouse_pos.x, ui.mouse_pos.y)
-	frame_time_pos.y += text_line_advance(ui.font, editor.size)*1.2
-	frame_time_rect = text_rect(ui.font, frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Center})
-	render(frame_time_rect, Color{0.0, 0.0, 0.0, 0.0}, 0.0, 0.0, 1.0, Color{1, 0, 0, 1})
-	render(ui.font, frame_time_text, editor.size, frame_time_rect.xy, Text_Render_Options{.Center}, Color{1.0, 1.0, 1.0, 1.0})
-
-	frame_time_text = format_string("Mouse dPos: %.2f, %.2f", ui.mouse_dpos.x, ui.mouse_dpos.y)
-	frame_time_pos.y += text_line_advance(ui.font, editor.size)*1.2
-	frame_time_rect = text_rect(ui.font, frame_time_text, editor.size, frame_time_pos, Text_Render_Options{.Center})
-	render(frame_time_rect, Color{0.0, 0.0, 0.0, 0.0}, 0.0, 0.0, 1.0, Color{1, 0, 0, 1})
-	render(ui.font, frame_time_text, editor.size, frame_time_rect.xy, Text_Render_Options{.Center}, Color{1.0, 1.0, 1.0, 1.0})
-
-	ui_input_text := utf8.runes_to_string(ui.text[:], context.temp_allocator)
-	render(ui.font, ui_input_text, editor.size, frame_time_pos + Vec2{0, ui.font.line_advance}, Text_Render_Options{.Center}, Color{1, 1, 1, 1})
-*/
 }

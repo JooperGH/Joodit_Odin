@@ -10,7 +10,7 @@ import gl "vendor:OpenGL"
 
 _main :: proc() {
 	app := new(App)
-	app_init(app, "Jedit", 1920, 1080)
+	app_init(app, "Joodit", 1920, 1080)
 	defer app_shutdown(app)
 
 	renderer_init(app)

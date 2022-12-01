@@ -35,6 +35,18 @@ rect_point_inside :: #force_inline proc(a: Rect, b: Vec2) -> b32 {
     return b.x >= a.x && b.x <= a.z && b.y >= a.y && b.y <= a.w 
 }
 
-rect_grow :: #force_inline proc(a: Rect, b: Vec2) -> Rect {
+rect_grow :: proc{rect_grow_f32, rect_grow_vec2}
+
+rect_grow_vec2 :: #force_inline proc(a: Rect, b: Vec2) -> Rect {
     return {a.x - b.x*0.5, a.y - b.y*0.5, a.z + b.x*0.5, a.w + b.y*0.5}
+}
+
+rect_grow_f32 :: #force_inline proc(a: Rect, b: f32) -> Rect {
+    center := rect_center(a)
+    new_dim := rect_dim(a)*b
+    return rect_from_center_dim(center, new_dim)
+}
+
+rect_from_pos_dim :: #force_inline proc(a: Vec2, b: Vec2) -> Rect {
+    return {a.x, a.y, a.x + b.x, a.y + b.y}
 }

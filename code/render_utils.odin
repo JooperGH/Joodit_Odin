@@ -43,7 +43,8 @@ text_dim :: proc(font: ^Font, text: string, size: f32) -> Vec2 {
         }
     }
 
-    return rect_dim(result)
+    dim := rect_dim(result)
+    return {dim.x, text_line_advance(font, size)}
 }
 
 text_rect :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options : Text_Render_Options = {.Center}) -> Rect {
@@ -55,6 +56,7 @@ text_rect :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options : Tex
 
     first_r := true
     cpos := pos
+    scaling_factor := (size/f32(font.size))
     for r := 0; r < len(text); r += 1 {
         rune_a := rune(text[r])
         rune_b := r < len(text)-2 ? rune(text[r+1]) : rune(-1)
@@ -62,9 +64,6 @@ text_rect :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options : Tex
         glyph_b, ok_b := font.glyphs[rune_b]
         
         if ok {
-
-            scaling_factor := (size/f32(font.size))
-            
             x := cpos.x + glyph.offset.x*scaling_factor - (first_r ? glyph.lsb*scaling_factor : 0.0)
             y := cpos.y - glyph.offset.y*scaling_factor
             eff_dim := glyph.dim * scaling_factor
@@ -110,5 +109,6 @@ text_line_advance :: #force_inline proc(font: ^Font, size: f32) -> f32 {
         return 0.0
     }
 
-    return (font.line_advance) 
+    scaling_factor := (size/f32(font.size))
+    return (font.line_advance) * scaling_factor
 }

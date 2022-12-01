@@ -3,6 +3,7 @@ package main
 import "core:mem"
 import "core:fmt"
 import "core:math"
+import "core:log"
 
 UI_ID :: distinct u32
 
@@ -37,8 +38,8 @@ UI_State :: struct {
     hash: []UI_Widget,
     root: ^UI_Widget,
     parent_stack: [dynamic]^UI_Widget,
+    flag_stack: [dynamic]UI_Widget_Flags,
     
-
     null: UI_ID,
     hot: UI_ID,
     active: UI_ID,
@@ -62,13 +63,14 @@ ui_init :: proc(app: ^App) {
     ui.hash = make([]UI_Widget, 8192)
     ui.root = ui_widget_create_root("_ROOT_")
     ui.parent_stack = make([dynamic]^UI_Widget, 0, 10)
+    ui.flag_stack = make([dynamic]UI_Widget_Flags, 0, 10)
 
     ui.null, _ = ui_get_id("")
     ui.hot = ui.null
     ui.active = ui.null
 
-    ui.font_size = 30.0
-    font_load(&ui.font, app, "fonts/OpenSans-Regular.ttf", 40, Font_Glyph_Range_Default, Font_Raster_Type.SDF, 2048, 2048, false)
+    ui.font_size = 32.0
+    font_load(&ui.font, app, "fonts/OpenSans-Regular.ttf", 30, Font_Glyph_Range_Default, Font_Raster_Type.SDF, 2048, 2048, false)
     
     ui_init_input()
 }
@@ -115,7 +117,7 @@ ui_widget_descending_loop :: proc(widget: ^UI_Widget, fn: UI_Widget_Loop_Fn) -> 
         }
     }
 
-    count += ui_widget_ascending_loop(widget.last, fn)
+    count += ui_widget_descending_loop(widget.last, fn)
 
     return count
 }
@@ -132,22 +134,49 @@ ui_begin :: proc() {
 ui_end :: proc() {
     ui_pop_parent()
     assert(len(ui.parent_stack) == 0)
+    assert(len(ui.flag_stack) == 0)
+
+    // DO LAYOUT HERE
+    
+    ui_widget_descending_loop(ui.root, proc(w: ^UI_Widget) {
+        if w.parent == nil {
+            ui_layout_root(w)
+            return
+        } 
+
+        w.size = ui_layout_calc_size(w)
+        ui_layout_calc_pos(w)
+        w.rect = rect_from_pos_dim(w.pos, w.size) 
+        w.available_rect = w.rect
+    })
 
     ui_widget_descending_loop(ui.root, proc(w: ^UI_Widget) {
         if .Ignore in w.flags {
             return
         }
 
-        pad_anim := 2.0 + 6.0*ui_widget_anim(w, 0.25, 8.0)
-        pad := Vec2{
-            .HorPad in w.flags ? pad_anim: 0.0,
-            .VerPad in w.flags ? pad_anim : 0.0,
+        pad_anim_factor : f32 = 4.0*ui_widget_anim(w, 0.25, 8.0)
+        pad_anim_pad := Vec2{
+            pad_anim_factor,
+            pad_anim_factor,
         }
-
         if .DrawBackground in w.flags {
-            anim := 1.0 + ui_widget_anim(w, 0.5, 12.0)
-            border_thickness : f32 = .DrawBorder in w.flags ? 1.0 : 0.0
-			render(rect_grow(w.rect, pad), [2]Color{anim*Color{0.15, 0.15, 0.15, 1.0}, anim*Color{0.125, 0.125, 0.125, 1.0}}, 4.0, 1.0, border_thickness, Color{0.8, 0.8, 0.8, 1.0})
+            bg_anim := 1.0 + 0.5*(ui_widget_hot_anim(w) + ui_widget_active_anim(w))
+            border_size : f32 = .DrawBorder in w.flags ? w.style.border_size : 0.0
+            roundness := w.style.rounding
+            softness : f32 = 1.0
+            border_color := w.style.colors[.Border]
+            if w.style.gradient {
+                colors := [2]Color{
+                    bg_anim * w.style.colors[.BgGradient0],
+                    bg_anim * w.style.colors[.BgGradient1],
+                }
+                render(rect_grow(w.rect, pad_anim_pad), colors, roundness, softness, border_size, border_color)
+            } else {
+                color := bg_anim * w.style.colors[.Bg]
+                render(rect_grow(w.rect, pad_anim_pad), color, roundness, softness, border_size, border_color)    
+            }
+
 		}
 
 		if .DrawText in w.flags {
@@ -168,8 +197,6 @@ ui_end :: proc() {
         w.active_t -= 2.0*ui.app.dt
         if w.hot_t <= 0.0 do w.hot_t = 0.0
         if w.active_t <= 0.0 do w.active_t = 0.0
-
-        w.rect = {5.0, 5.0, ui.window_size.x-5.0, ui.window_size.y-5.0}
     })
 
     ui.hot = ui.null
@@ -183,43 +210,4 @@ ui_free :: proc() {
     delete(ui.text)
 
     delete(ui.hash)
-}
-
-ui_button :: proc(text: string) -> UI_Widget_Interaction {
-    widget := ui_widget_create({.Clickable,
-                                .DrawBackground,
-                                .DrawBorder,
-                                .DrawText,
-                                .HorPad,
-                                .HotAnimation,
-                                .ActiveAnimation},
-                                text)
-
-    i := ui_widget_interaction(widget)
-    
-    if i.hovered {
-        ui_set_as_hot(widget)
-    }
-
-    if i.left_down && ui_match_hot(widget) {
-        ui_set_as_active(widget)
-    }
-
-    return i
-}
-
-ui_text :: proc(text: string) -> UI_Widget_Interaction {
-    widget := ui_widget_create({.DrawText,
-                                .TextAnimation,
-                                .HotAnimation,
-                                .ActiveAnimation},
-                                text)
-
-    i := ui_widget_interaction(widget)
-    
-    if i.hovered {
-        ui_set_as_hot(widget)
-    }
-
-    return i
 }
