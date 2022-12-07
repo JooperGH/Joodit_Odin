@@ -353,23 +353,6 @@ font_load_task :: proc(task: thread.Task) {
         spc := stbtt.pack_context{}
         stbtt.PackBegin(&spc, nil, i32(tex_width), 1024*32, 0, padding, nil)
         
-        /*
-        pack_context := cast(^stbrp.Context)spc.pack_info
-        assert(pack_context != nil)
-
-        for src in &src_data {
-            if src.glyph_count == 0 do continue
-            
-            stbrp.pack_rects(pack_context, raw_data(src.rects), src.glyph_count)
-
-            for gi : i32 = 0; gi < src.glyph_count; gi += 1 {
-                if src.rects[gi].was_packed {
-                    tex_height = max(tex_height, u32(src.rects[gi].y + src.rects[gi].h))
-                }
-            }
-        }
-        */
-
         font.texture = texture_create(i32(tex_width), i32(next_pow_2(tex_height)), Texture_Format.Alpha)
         spc.pixels = &font.texture.data[0]
         spc.height = font.texture.h
