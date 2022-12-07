@@ -4,6 +4,7 @@ import "core:log"
 import "vendor:glfw"
 
 Mod_Code :: enum {
+    Unknown,
     First,
     Shift,
     Ctrl,
@@ -12,10 +13,10 @@ Mod_Code :: enum {
     CapsLock,
     NumLock,
     Last,
-    Unknown,
 }
 
 Button_Code :: enum {
+    Unknown,
     First,
     Left,
     Right,
@@ -26,7 +27,6 @@ Button_Code :: enum {
     Num7,
     Num8,
     Last,
-    Unknown,
 }
 
 Key_Code :: enum {
@@ -159,6 +159,7 @@ button_code_from_glfw :: #force_inline proc(glfw_button: i32) -> Button_Code {
         case glfw.MOUSE_BUTTON_6: return .Num6
         case glfw.MOUSE_BUTTON_7: return .Num7
         case glfw.MOUSE_BUTTON_8: return .Num8
+        case: return .Unknown
     }
     return .Unknown
 }
@@ -171,6 +172,7 @@ mod_code_from_glfw :: #force_inline proc(glfw_mod: i32) -> Mod_Code {
         case glfw.MOD_SUPER: return .Super
         case glfw.MOD_CAPS_LOCK: return .CapsLock
         case glfw.MOD_NUM_LOCK: return .NumLock
+        case: return .Unknown
     }
     return .Unknown
 }
@@ -295,9 +297,7 @@ key_code_from_glfw :: #force_inline proc(glfw_key: i32) -> Key_Code {
         case glfw.KEY_RIGHT_ALT:            return .Alt                         
         case glfw.KEY_RIGHT_SUPER:          return .Super                        
         case glfw.KEY_MENU:                 return .Menu    
-        case:
-            log.debug("Unknown key: ", glfw.KEY_MENU)                               
-            return .Unknown                      
+        case: return .Unknown                      
     }
     return Key_Code.Unknown
 }

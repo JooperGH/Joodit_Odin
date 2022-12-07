@@ -101,13 +101,6 @@ void main() {
             o_color = mix(f_color * texture(u_textures[int(f_tex_id)], f_tc), f_border_color, factors.y) * factors.x;
         } break;
         case 2: {
-            float edge = f_rect_params.x;
-            float smoothness = f_rect_params.y;
-            float dist = texture(u_textures[int(f_tex_id)], f_tc).r;
-            float alpha = smoothstep(edge-smoothness, edge+smoothness, dist);
-            o_color = vec4(f_color.rgb, alpha) * f_color.a;
-        } break;
-        case 3: {
             float alpha = texture(u_textures[int(f_tex_id)], f_tc).r;
             o_color = vec4(f_color.rgb, alpha);
         } break;

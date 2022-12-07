@@ -27,11 +27,12 @@ UI_Widget_Interaction :: struct {
 
 UI_Widget_Flag :: enum {
     Ignore,
-    HorPad,
-    VerPad,
     FillX,
     FillY,
+    PadX,
+    PadY,
     Clickable,
+    Draggable,
     DrawBorder,
     DrawText,
     DrawBackground,
@@ -63,10 +64,18 @@ UI_Widget :: struct {
     size: Vec2,
     rect: Rect,
     available_rect: Rect,
+    offset: Vec2,
+    dragging: b32,
 
     hot_t: f32,
     active_t: f32,
+
+    i: UI_Widget_Interaction,
+    active_condition: UI_Condition_Fn,
+    hot_condition: UI_Condition_Fn,
 }
+
+UI_Condition_Fn :: proc(^UI_Widget) -> b32
 
 ui_match_id :: #force_inline proc(a, b: UI_ID) -> b32 {
     return a == b
@@ -122,48 +131,61 @@ ui_pop_parent :: proc() {
     pop(&ui.parent_stack)
 }
 
-ui_push_flags :: proc(flags: UI_Widget_Flags) {
-    append(&ui.flag_stack, flags)
+ui_push_flags :: proc(flags_add: UI_Widget_Flags, flags_rem: UI_Widget_Flags = {}) {
+    append(&ui.flag_add_stack, flags_add)
+    append(&ui.flag_rem_stack, flags_rem)
 }
 
 ui_pop_flags :: proc() {
-    assert(len(ui.flag_stack) > 0)
-    pop(&ui.flag_stack)
+    assert(len(ui.flag_add_stack) > 0)
+    assert(len(ui.flag_rem_stack) > 0)
+    pop(&ui.flag_add_stack)
+    pop(&ui.flag_rem_stack)
 }
 
-ui_widget_get_from_hash :: proc(str: string) -> ^UI_Widget {
+ui_widget_get :: proc(str: string) -> ^UI_Widget {
     id, name := ui_get_id(str)
-    
+
+    if id == ui.null {
+        widget := new(UI_Widget, ui.temp_allocator)
+        widget.id = id
+        widget.str = name
+        return widget
+    }
+
     widget := &ui.hash[(cast(u32)id % u32(len(ui.hash)-1))]
-    if widget.id != ui.null && id != ui.null {
-        if widget.id != id {
-            sentinel := widget
-            last_non_nil_sentinel := sentinel
-    
-            for sentinel != nil {
-                if sentinel.id == id {
-                    widget = sentinel
-                    break
-                }
-    
-                if sentinel.hash_next == nil do last_non_nil_sentinel = sentinel
-                sentinel = sentinel.hash_next
+    if !ui_match_null(widget) && widget.id != id {
+        sentinel := widget
+        last_non_nil_sentinel := sentinel
+
+        for sentinel != nil {
+            if sentinel.id == id {
+                widget = sentinel
+                break
             }
-    
-            if sentinel == nil {
-                widget = new(UI_Widget, ui.allocator)
-                widget.id = id
-                last_non_nil_sentinel.hash_next = widget
-            }
-        } 
+
+            if sentinel.hash_next == nil do last_non_nil_sentinel = sentinel
+            sentinel = sentinel.hash_next
+        }
+
+        if sentinel == nil {
+            widget = new(UI_Widget, ui.allocator)
+            widget.id = id
+            widget.str = name
+            last_non_nil_sentinel.hash_next = widget
+        }
     }
 
     widget.id = id
     widget.str = name
+
+    return widget
+}
+
+ui_widget_build_hierarchy :: proc(widget: ^UI_Widget) {
     widget.parent = len(ui.parent_stack) > 0 ? slice.last(ui.parent_stack[:]) : nil 
     if widget.parent != nil {
         if widget.parent.first == nil {
-            assert(widget.last == nil)
             widget.parent.first = widget
             widget.parent.last = widget
         } else {
@@ -173,12 +195,17 @@ ui_widget_get_from_hash :: proc(str: string) -> ^UI_Widget {
             widget.parent.last = widget
         }
     }
+}
+
+ui_widget_create :: proc(str: string) -> ^UI_Widget {
+    widget := ui_widget_get(str)
+    ui_widget_build_hierarchy(widget)
     return widget
 }
 
 ui_widget_create_root :: proc(str: string) -> ^UI_Widget {
-    widget := ui_widget_get_from_hash(str)
-    widget.id, widget.str = ui_get_id(str)
+    widget := ui_widget_create(str)
+    widget.flags = {.Ignore, .PadX, .PadY,}
     widget.style = ui_style_default()
     widget.semantic_sizes[.X] = {
         .PercentOfParent,
@@ -190,15 +217,14 @@ ui_widget_create_root :: proc(str: string) -> ^UI_Widget {
         1.0,
         0.0,
     }
-    widget.flags = {.Ignore}
     return widget
 }
 
-ui_widget_create :: proc(flags: UI_Widget_Flags, str: string) -> ^UI_Widget {
-    widget := ui_widget_get_from_hash(str)
+ui_widget :: proc(flags: UI_Widget_Flags, str: string) -> ^UI_Widget {
+    widget := ui_widget_create(str)
     if widget == nil do return widget
     
-    widget.flags = flags + (len(ui.flag_stack) > 0 ? slice.last(ui.flag_stack[:]) : {}) 
+    widget.flags = flags + (len(ui.flag_add_stack) > 0 ? slice.last(ui.flag_add_stack[:]) : {}) - (len(ui.flag_rem_stack) > 0 ? slice.last(ui.flag_rem_stack[:]) : {})
     widget.style = ui_style_default()
     widget.semantic_sizes[.X] = {
         .DrawText in widget.flags ? UI_Size_Kind.TextContent : UI_Size_Kind.PercentOfParent,
@@ -215,6 +241,8 @@ ui_widget_create :: proc(flags: UI_Widget_Flags, str: string) -> ^UI_Widget {
 
 ui_widget_interaction :: proc(widget: ^UI_Widget) -> UI_Widget_Interaction {
     clickable : b32 = .Clickable in widget.flags
+    draggable : b32 = .Draggable in widget.flags
+
     i := UI_Widget_Interaction{}
     i.widget = widget
     i.mouse_pos = ui.mouse_pos
@@ -223,21 +251,29 @@ ui_widget_interaction :: proc(widget: ^UI_Widget) -> UI_Widget_Interaction {
     i.left_clicked = clickable && i.hovered && ui_input_pressed(Button_Code.Left)
     i.left_double_clicked = clickable && i.hovered && ui_input_double_pressed(Button_Code.Left)
     i.left_down = clickable && i.hovered && ui_input_down(Button_Code.Left)
-    i.left_released = clickable && i.hovered && ui_input_released(Button_Code.Left)
+    i.left_released = clickable && ui_input_released(Button_Code.Left)
     i.right_clicked = clickable && i.hovered && ui_input_pressed(Button_Code.Right)
     i.right_double_clicked = clickable && i.hovered && ui_input_double_pressed(Button_Code.Right)
     i.right_down = clickable && i.hovered && ui_input_down(Button_Code.Right)
-    i.right_released = clickable && i.hovered && ui_input_released(Button_Code.Right)
-    i.dragged = clickable && i.left_down && (app_time() - ui.buttons[Button_Code.Left].last_press > 0.3)
+    i.right_released = clickable && ui_input_released(Button_Code.Right)
+
+    if clickable && draggable && i.hovered && ui_input_pressed(Button_Code.Left) {
+        widget.dragging = true
+    }
+    if clickable && draggable && ui_input_released(Button_Code.Left) {
+        widget.dragging = false
+    }
+
+    i.dragged = clickable && draggable && widget.dragging && ui_input_down(Button_Code.Left)
     return i
 }
 
 ui_widget_hot_anim :: proc(widget: ^UI_Widget, threshold: f32 = 0.5, rate: f32 = 6.0) -> f32 {
-    return 1.0/(1.0+math.exp_f32(-rate*(widget.hot_t-threshold)))
+    return .ActiveAnimation in widget.flags ? 1.0/(1.0+math.exp_f32(-rate*(widget.hot_t-threshold))) : 0.0
 }
 
 ui_widget_active_anim :: proc(widget: ^UI_Widget, threshold: f32 = 0.5, rate: f32 = 6.0) -> f32 {
-    return 1.0/(1.0+math.exp_f32(-rate*(widget.active_t-threshold)))
+    return .ActiveAnimation in widget.flags ? 1.0/(1.0+math.exp_f32(-rate*(widget.active_t-threshold))) : 0.0
 }
 
 ui_widget_anim :: proc(widget: ^UI_Widget, threshold: f32 = 0.5, rate: f32 = 6.0) -> f32 {

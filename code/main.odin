@@ -58,7 +58,7 @@ main :: proc() {
 	mem.tracking_allocator_init(&track, context.allocator)
 	context.allocator = mem.tracking_allocator(&track)
     
-	log_file, ok := os.open("log.txt", os.O_CREATE | os.O_WRONLY)
+	log_file, ok := os.open("log.txt", os.O_CREATE)
 	
 	logger := log.create_multi_logger(log.create_console_logger(), log.create_file_logger(log_file))
 	context.logger = logger

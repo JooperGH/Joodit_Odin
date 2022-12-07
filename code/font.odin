@@ -6,66 +6,56 @@ import "core:os"
 import "core:thread"
 import "core:sort"
 import "core:slice"
+import "core:mem"
+import "core:strings"
+import "core:math"
 
 import stbtt "vendor:stb/truetype"
+import stbrp "vendor:stb/rect_pack"
 
-Font_Data :: ^stbtt.fontinfo
+Font_Info :: ^stbtt.fontinfo
 
 Font_Load_Task_Data :: struct {
     font: ^^Font,
-    path: string,
-    size: i32,
-    atlas_width: i32,
-    atlas_height: i32,
+    paths: []string,
     ranges: []Font_Glyph_Range,
-    raster_type: Font_Raster_Type,
-}
-
-Font_Raster_Type :: enum {
-    SDF,
-    Bitmap,
+    sizes: []i32,
 }
 
 Font :: struct {
-    data: Font_Data,
+    infos: []Font_Info,
+    datas: [][]byte,
 
-    raster_type: Font_Raster_Type,
-
-    scale: f32,
-    size: i32,
     texture: ^Texture,
-
-    ranges: []Font_Glyph_Range,
     glyphs: map[rune]Font_Glyph,
-    baseline: f32,
-    line_advance: f32,
-    padding: f32,
+    scales: []f32,
+    sizes: []i32,
+    baselines: []f32,
+    line_advances: []f32,
+    paddings: []f32,
 
     load_state: Load_State,
 } 
 
 Font_Glyph :: struct {
-    index: i32,
-    advance: f32,
-    lsb: f32,
-    offset: [2]f32,
-    dim: [2]f32,
-    uv: [4]f32,
-}
-
-Font_Builder_Glyph :: struct {
+    font_index: i32,
     codepoint: rune,
-    offset: [2]i32,
-    box: [4]i32,
-    bitmap: [^]u8,
+    advance: f32,
+    x0, y0, x1, y1: f32,
+    u0, v0, u1, v1: f32,
 }
 
-Font_Glyph_Range :: [2]i32
-Font_Glyph_Range_Latin :: Font_Glyph_Range{0x0020, 0x00FF}
-Font_Glyph_Range_Punctuation :: Font_Glyph_Range{0x2000, 0x206F}
-Font_Glyph_Range_Default :: []Font_Glyph_Range{Font_Glyph_Range_Latin, Font_Glyph_Range_Punctuation}
+Font_Glyph_Range :: []rune
+font_glyph_range_default :: proc(allocator: mem.Allocator = context.allocator) -> Font_Glyph_Range {
+    result := make([]rune, 5, allocator)
+    result[0] = 0x0020
+    result[1] = 0x00FF
+    result[2] = 0x2000
+    result[3] = 0x206F
+    return result
+}
 
-font_load :: proc(font: ^^Font, app: ^App, path: string, size: i32, ranges: []Font_Glyph_Range, raster_type: Font_Raster_Type, atlas_width: i32 = 2048, atlas_height: i32 = 2048, threaded: bool = true){
+font_load :: proc(font: ^^Font, app: ^App, paths: []string, sizes: []i32, ranges: []Font_Glyph_Range, threaded: bool = true){
     if !check_load_state(cast(rawptr)font^, Font, proc(data: rawptr) {
         font := cast(^Font)data
         font_free(&font)
@@ -74,19 +64,37 @@ font_load :: proc(font: ^^Font, app: ^App, path: string, size: i32, ranges: []Fo
     }
 
     log.debug("Font load request at ", app_time())
+
+    assert(len(ranges) != 0)
+    assert(len(ranges) == len(sizes) && len(ranges) == len(paths))
     
     font^ = new(Font)
     font^.load_state = .Queued
 
     data := new(Font_Load_Task_Data, context.allocator)
     data.font = font
-    data.path = path
-    data.size = size
-    data.atlas_width = atlas_width
-    data.atlas_height = atlas_height
-    data.raster_type = raster_type
-    data.ranges = slice.clone(ranges)
-    
+
+    data.sizes = make([]i32, len(sizes))
+    i := 0
+    for size in sizes {
+        data.sizes[i] = size
+        i += 1
+    }
+        
+    data.paths = make([]string, len(paths))
+    i = 0
+    for path in paths {
+        data.paths[i] = strings.clone(path, context.allocator)
+        i += 1
+    }
+
+    data.ranges = make([]Font_Glyph_Range, len(ranges))
+    i = 0
+    for range in ranges {
+        data.ranges[i] = slice.clone(range, context.allocator)
+        i += 1
+    }
+
     if threaded {
         app_push_task(app, font_load_task, cast(rawptr)data)
     } else {
@@ -99,54 +107,35 @@ font_load :: proc(font: ^^Font, app: ^App, path: string, size: i32, ranges: []Fo
 }
 
 font_glyph_kern :: proc(font: ^Font, a: ^Font_Glyph, b: ^Font_Glyph) -> f32 {
-    kern := stbtt.GetGlyphKernAdvance(font.data, a.index, b.index)
+    //kern := stbtt.GetGlyphKernAdvance(font.data, a.index, b.index)
 
-    return f32(kern) * font.scale 
+    return 0.0 //f32(kern) * font.scale 
 }
-
-font_get_render_mode :: proc(font: ^Font) -> f32 {
-    switch font.raster_type {
-    case .Bitmap: return 3.0
-    case .SDF: return 2.0
-    }
-    return -1.0
-}
-
+/*
 @(private)
-font_bitmap_raster :: proc(font: ^Font) -> []Font_Builder_Glyph {
-    g := 0
-    builder_glyphs := make([]Font_Builder_Glyph, font_glyph_range_count(font.ranges))
-    for range in font.ranges {
-        for r := range[0]; r <= range[1]; r += 1 {
-            builder_glyphs[g].codepoint = cast(rune)r
-            builder_glyphs[g].bitmap = stbtt.GetCodepointBitmapSubpixel(font.data, font.scale, font.scale, 8.0, 8.0, cast(rune)r, 
-                                                 &builder_glyphs[g].box.z, &builder_glyphs[g].box.w, 
-                                                 &builder_glyphs[g].offset.x, &builder_glyphs[g].offset.y)
-            g += 1
-        }
-    }
-    return builder_glyphs
-}
-
-@(private)
-font_sdf_raster :: proc(font: ^Font) -> []Font_Builder_Glyph {
+font_stb_sdf_raster :: proc(font: ^Font, rpc: ^rp.Context) {
     font.padding = 16.0
     pixel_dist_scale : f32 = f32(127)/f32(font.padding)
 
+    w, h: i32
     g := 0
-    builder_glyphs := make([]Font_Builder_Glyph, font_glyph_range_count(font.ranges))
+
     for range in font.ranges {
         for r := range[0]; r <= range[1]; r += 1 {
-            builder_glyphs[g].codepoint = cast(rune)r
-            builder_glyphs[g].bitmap = stbtt.GetCodepointSDF(font.data, font.scale, r, i32(font.padding), 180, pixel_dist_scale, 
-                                                 &builder_glyphs[g].box.z, &builder_glyphs[g].box.w, 
-                                                 &builder_glyphs[g].offset.x, &builder_glyphs[g].offset.y)
+            bg := new(Font_Builder_Glyph, rpc.allocator)
+            bg.codepoint = cast(rune)r
+            bitmap := stbtt.GetCodepointSDF(font.data, font.scale, r, i32(font.padding), 180, pixel_dist_scale, 
+                                                 &w, &h, 
+                                                 &bg.offset.x, &bg.offset.y)
+            if bitmap != nil {
+                rp.push(rpc, w, h, cast(rawptr)bg, bitmap[:(w*h)])
+            }
             g += 1
         }
     }
-    return builder_glyphs
 }
 
+/*
 @(private)
 font_pack_rects :: proc(font: ^Font, glyphs: []Font_Builder_Glyph) -> b32 {    
     sort.quick_sort_proc(glyphs, proc(a: Font_Builder_Glyph, b: Font_Builder_Glyph) -> int {
@@ -179,12 +168,11 @@ font_pack_rects :: proc(font: ^Font, glyphs: []Font_Builder_Glyph) -> b32 {
 
     return true
 }
-
+*/
 @(private)
-font_build_atlas :: proc(font: ^Font, glyphs: []Font_Builder_Glyph) {
-    for i := 0; i < len(glyphs); i += 1 {
-        built_glyph := &glyphs[i]
-
+font_build_atlas :: proc(font: ^Font, rpc: ^rp.Context) {
+    for r in rpc.rects {
+        built_glyph := cast(^Font_Builder_Glyph)r.user_data
         lsb, adv: i32
         stbtt.GetCodepointHMetrics(font.data, built_glyph.codepoint, &adv, &lsb)
 
@@ -193,77 +181,230 @@ font_build_atlas :: proc(font: ^Font, glyphs: []Font_Builder_Glyph) {
             f32(adv)*font.scale, 
             f32(lsb)*font.scale,
             [2]f32{f32(built_glyph.offset.x) + font.padding, f32(built_glyph.offset.y)},
-            [2]f32{f32(built_glyph.box.z) - font.padding, f32(built_glyph.box.w) - font.padding},
+            [2]f32{f32(r.w) - font.padding, f32(r.h) - font.padding},
             [4]f32{
-                (f32(built_glyph.box.x) + font.padding/2)/f32(font.texture.w),
-                (f32(built_glyph.box.y+built_glyph.box.w)-font.padding/2)/f32(font.texture.h),
-                (f32(built_glyph.box.x+built_glyph.box.z)-font.padding/2)/f32(font.texture.w),
-                (f32(built_glyph.box.y) + font.padding/2)/f32(font.texture.h),
+                (f32(r.x) + font.padding/2)/f32(font.texture.w),
+                (f32(r.y+r.h)-font.padding/2)/f32(font.texture.h),
+                (f32(r.x+r.w)-font.padding/2)/f32(font.texture.w),
+                (f32(r.y) + font.padding/2)/f32(font.texture.h),
             },
         }
 
         font.glyphs[built_glyph.codepoint] = glyph
 
-        if built_glyph.box.z != 0 && built_glyph.box.z != 0 {
-            for y : i32 = 0; y < built_glyph.box.w; y += 1 {
-                for x : i32 = 0; x < built_glyph.box.z; x += 1 {
-                    font.texture.data[(built_glyph.box.x + x) + font.texture.w * (built_glyph.box.y + y)] = built_glyph.bitmap[x + built_glyph.box.z * y]
+        if r.w != 0 && r.h != 0 {
+            for y : i32 = 0; y < r.h; y += 1 {
+                for x : i32 = 0; x < r.w; x += 1 {
+                    font.texture.data[(r.x + x) + font.texture.w * (r.y + y)] = r.data[x + r.w * y]
                 }   
             }    
         }
     }
 }
 
+*/
+
+Font_Build_Src_Data :: struct {
+    pack_range: stbtt.pack_range,
+    rects: []stbrp.Rect,
+    packed_chars: []stbtt.packedchar,
+    glyph_highest, glyph_lowest: rune,
+    glyph_count: i32,
+    glyph_set: []u8,
+    glyph_list: []rune,
+}
+
+Font_Build_Dst_Data :: struct {
+    glyph_highest, glyph_lowest: rune,
+    glyph_count: i32,
+    glyph_set: []u8,
+    glyph_list: []rune,
+}
+
 @(private)
 font_load_task :: proc(task: thread.Task) {
     task_data := cast(^Font_Load_Task_Data)task.data
     
-    data, ok := os.read_entire_file_from_filename(task_data.path, context.allocator)
-    if ok {
+    if len(task_data.paths) > 0  {
         font := task_data.font^
-        font.size = task_data.size
-        font.ranges = task_data.ranges
-        font.texture = texture_create(task_data.atlas_width, task_data.atlas_height, Texture_Format.Alpha)
-        font.glyphs = make(map[rune]Font_Glyph, font_glyph_range_count(font.ranges))
-        font.raster_type = task_data.raster_type
-        
-        fontinfo := new(stbtt.fontinfo)
-        if !stbtt.InitFont(fontinfo, slice.as_ptr(data), 0) {
-            log.error("Failed to load font ", task_data.path, ".")
-            return
-        }
+        font.sizes = task_data.sizes
+        font.infos =  make([]Font_Info, len(task_data.paths), context.allocator)
+        font.datas =  make([][]byte, len(task_data.paths), context.allocator)
+        font.scales =  make([]f32, len(task_data.paths), context.allocator)
+        font.baselines =  make([]f32, len(task_data.paths), context.allocator)
+        font.line_advances =  make([]f32, len(task_data.paths), context.allocator)
+        font.paddings =  make([]f32, len(task_data.paths), context.allocator)
 
-        font.data = fontinfo
-        font.scale = stbtt.ScaleForPixelHeight(fontinfo, f32(font.size))
+        // 1) Initialize font info and check for low-max glyph codepoint 
+        ranges := task_data.ranges
+        dst_data := Font_Build_Dst_Data{}
+        src_data := make([]Font_Build_Src_Data, len(font.infos), context.temp_allocator)
+        for path, i in task_data.paths {
+            src_data[i].glyph_highest = ranges[i][0]
+            src_data[i].glyph_lowest = ranges[i][0]
+            src_data[i].glyph_count = 0
 
-        ascent, descent, line_gap: i32 
-        stbtt.GetFontVMetrics(fontinfo, &ascent, &descent, &line_gap)
-        font.baseline = f32(ascent) * font.scale
-        font.line_advance = (f32(ascent) - f32(descent) + f32(line_gap)) * font.scale
+            data, ok := os.read_entire_file_from_filename(path, context.allocator)
+            if !ok {
+                return
+            }
 
-        builder_glyphs: []Font_Builder_Glyph
-        switch font.raster_type {
-            case .Bitmap:   builder_glyphs = font_bitmap_raster(font)
-            case .SDF:      builder_glyphs = font_sdf_raster(font)
-        }
+            font.datas[i] = data
+            font.infos[i] = new(stbtt.fontinfo)
+            if !stbtt.InitFont(font.infos[i], &data[0], 0) {
+                log.error("Failed to load font ", path, ".")
+                return
+            }
 
-        if !font_pack_rects(font, builder_glyphs) {
-            log.error("Failed to pack rects while loading font!")
-        }
-
-        font_build_atlas(font, builder_glyphs)
-
-        switch font.raster_type {
-            case .Bitmap:
-                for glyph in builder_glyphs {
-                    stbtt.FreeSDF(glyph.bitmap, nil)
+            range := ranges[i]
+            for ri := 0; ri < len(range)-2; ri += 2 { 
+                for r in range[ri]..=range[ri+1] {
+                    src_data[i].glyph_highest = max(src_data[i].glyph_highest, r)
+                    src_data[i].glyph_lowest = min(src_data[i].glyph_lowest, r)
                 }
-            case .SDF:
-                for glyph in builder_glyphs {
-                    stbtt.FreeBitmap(glyph.bitmap, nil)
-                }  
+            }
+
+            dst_data.glyph_highest = max(dst_data.glyph_highest, src_data[i].glyph_highest)
+            dst_data.glyph_lowest = min(dst_data.glyph_lowest, src_data[i].glyph_lowest)
+
+            font.scales[i] = stbtt.ScaleForPixelHeight(font.infos[i], f32(font.sizes[i]))
+
+            u_ascent, u_descent, u_line_gap: i32 
+            stbtt.GetFontVMetrics(font.infos[i], &u_ascent, &u_descent, &u_line_gap)
+            ascent := math.floor_f32(f32(u_ascent) * font.scales[i] + ((f32(u_ascent) > 0.0) ? +1.0 : -1.0));
+            descent := math.floor_f32(f32(u_descent) * font.scales[i] + ((f32(u_descent) > 0.0) ? +1.0 : -1.0));
+            line_gap := math.floor_f32(f32(u_line_gap) * font.scales[i] + ((f32(u_line_gap) > 0.0) ? +1.0 : -1.0));
+            font.baselines[i] = ascent
+            font.line_advances[i] = ascent - descent + line_gap
         }
-        delete(builder_glyphs)
+        
+        // 2) Find every glyph and check if it exists in the font
+        total_glyph_count := 0
+        dst_data.glyph_set = make([]u8, dst_data.glyph_highest+1, context.temp_allocator)
+        for info, i in font.infos {
+            src_data[i].glyph_set = make([]u8, src_data[i].glyph_highest+1, context.temp_allocator)
+            for ri := 0; ri < len(ranges[i])-2; ri += 2 { 
+                for r := ranges[i][ri]; r <= ranges[i][ri+1]; r += 1 {
+                    if dst_data.glyph_set[r] != 0 do continue
+                    if stbtt.FindGlyphIndex(info, r) == 0 do continue
+
+                    src_data[i].glyph_set[r] = 1
+                    dst_data.glyph_set[r] = 1
+                    src_data[i].glyph_count += 1
+                    dst_data.glyph_count += 1
+                    total_glyph_count += 1
+                }
+            }
+        }
+
+        // 3) Build codepoint lists
+        for info, i in font.infos {
+            src_data[i].glyph_list = make([]rune, src_data[i].glyph_count, context.temp_allocator)
+            k := 0
+            for j : rune = 0; j < src_data[i].glyph_highest+1; j += 1 {
+                if src_data[i].glyph_set[j] != 0 { 
+                    src_data[i].glyph_list[k] = j
+                    k += 1
+                }
+            }
+            assert(i32(len(src_data[i].glyph_list)) == src_data[i].glyph_count)
+        }
+
+        // 4) Gather glyph sizes!
+        packed_chars := make([]stbtt.packedchar, total_glyph_count, context.temp_allocator) 
+        rects := make([]stbrp.Rect, total_glyph_count, context.temp_allocator)
+    
+        oversample_h : i32 = 4
+        oversample_v : i32 = 4
+        padding : i32 = 10
+        area : i32 = 0
+        rects_out : i32 = 0
+        packed_chars_out : i32 = 0
+        for src, i in &src_data {
+            if src.glyph_count == 0 {
+                continue
+            }
+            src.rects = rects[rects_out:(rects_out+src.glyph_count)]
+            src.packed_chars = packed_chars[packed_chars_out:(packed_chars_out+src.glyph_count)]
+            rects_out += src.glyph_count
+            packed_chars_out += src.glyph_count
+
+            src.pack_range.font_size = f32(font.sizes[i])
+            src.pack_range.first_unicode_codepoint_in_range = 0
+            src.pack_range.array_of_unicode_codepoints = &src.glyph_list[0]
+            src.pack_range.num_chars = i32(len(src.glyph_list))
+            src.pack_range.chardata_for_range = raw_data(src.packed_chars)
+
+            for gi := 0; gi < len(src.glyph_list); gi += 1 {
+                x0, y0, x1, y1: i32
+                glyph_index_in_font := stbtt.FindGlyphIndex(font.infos[i], src.glyph_list[gi]);
+                assert(glyph_index_in_font != 0)
+                stbtt.GetGlyphBitmapBoxSubpixel(font.infos[i], glyph_index_in_font, font.scales[i] * f32(oversample_h), font.scales[i] * f32(oversample_v), 0, 0, &x0, &y0, &x1, &y1)
+                src.rects[gi].w = stbrp.Coord(x1 - x0 + padding + oversample_h - 1)
+                src.rects[gi].h = stbrp.Coord(y1 - y0 + padding + oversample_v - 1)
+                area += i32(src.rects[gi].w * src.rects[gi].h)
+            }
+        }
+        
+        area_sqrt := math.sqrt_f32(f32(area))
+        tex_width := u32((area_sqrt >= 4096 * 0.7) ? 4096 : (area_sqrt >= 2048 * 0.7) ? 2048 : (area_sqrt >= 1024 * 0.7) ? 1024 : 512)
+        tex_height : u32 = tex_width
+
+        spc := stbtt.pack_context{}
+        stbtt.PackBegin(&spc, nil, i32(tex_width), 1024*32, 0, padding, nil)
+        
+        /*
+        pack_context := cast(^stbrp.Context)spc.pack_info
+        assert(pack_context != nil)
+
+        for src in &src_data {
+            if src.glyph_count == 0 do continue
+            
+            stbrp.pack_rects(pack_context, raw_data(src.rects), src.glyph_count)
+
+            for gi : i32 = 0; gi < src.glyph_count; gi += 1 {
+                if src.rects[gi].was_packed {
+                    tex_height = max(tex_height, u32(src.rects[gi].y + src.rects[gi].h))
+                }
+            }
+        }
+        */
+
+        font.texture = texture_create(i32(tex_width), i32(next_pow_2(tex_height)), Texture_Format.Alpha)
+        spc.pixels = &font.texture.data[0]
+        spc.height = font.texture.h
+
+        for src, i in &src_data {
+            stbtt.PackSetOversampling(&spc, u32(oversample_h), u32(oversample_v))
+            stbtt.PackFontRanges(&spc, raw_data(font.datas[i]), 0, &src.pack_range, 1)
+        }
+
+        stbtt.PackEnd(&spc)
+
+        glyph := Font_Glyph{}
+        font.glyphs = make(map[rune]Font_Glyph, total_glyph_count, context.allocator)
+        for src, i in &src_data {
+            for gi : i32 = 0; gi < i32(src.glyph_count); gi += 1 {
+                codepoint := src.glyph_list[gi]
+                pc := &src.packed_chars[gi]
+                q: stbtt.aligned_quad
+                _x, _y: f32
+                stbtt.GetPackedQuad(raw_data(src.packed_chars), font.texture.w, font.texture.h, gi, &_x, &_y, &q, false)
+                
+                glyph.font_index = i32(i)
+                glyph.codepoint = codepoint
+                glyph.x0 = q.x0
+                glyph.y0 = q.y0
+                glyph.x1 = q.x1
+                glyph.y1 = q.y1
+                glyph.u0 = q.s0
+                glyph.v0 = q.t0
+                glyph.u1 = q.s1
+                glyph.v1 = q.t1
+                glyph.advance = pc.xadvance
+                font.glyphs[codepoint] = glyph
+            }
+        }
 
         font.load_state = .Loaded_And_Not_Uploaded
 		log.debug("Font load request succeeded at ", app_time())
@@ -299,27 +440,67 @@ font_validate :: proc(font: ^Font) -> b32 {
 
 font_free :: proc(font: ^^Font) {
     if font^ != nil {
-        free(font^.data)
+        for data in font^.datas {
+            delete(data)
+        }
+        delete(font^.datas)
 
-        texture_free(&font^.texture)
+        for info in font^.infos {
+            free(info)
+        }
+        delete(font^.infos)
 
         delete(font^.glyphs)
+        delete(font^.sizes)
+        delete(font^.scales)
+        delete(font^.paddings)
+        delete(font^.line_advances)
+        delete(font^.baselines)
+
+        texture_free(&font^.texture)
 
         free(font^)
         font^ = nil
     }
 }
 
-@(private)
-font_glyph_count :: proc(range: Font_Glyph_Range) -> i32 {
-    return i32(range.y) - i32(range.x) + 1
+font_add_glyph :: proc(codepoint: rune, x0, y0, x1, y1, u0, v0, u1, v1, adv: f32) {
+
 }
 
-@(private)
-font_glyph_range_count :: proc(ranges: []Font_Glyph_Range) -> i32 {
-    total : i32 = 0
-    for range in ranges {
-        total += (range.y - range.x + 1)
+font_fallback_scaling_factor :: proc(font: ^Font, size: f32) -> f32 {
+    if !font_validate(font) {
+        return 0.0
     }
-    return total
+
+    return size / f32(font.sizes[0])
+}
+
+font_scaling_factor :: proc(font: ^Font, glyph: ^Font_Glyph, size: f32) -> f32 {
+    if !font_validate(font) {
+        return 0.0
+    }
+
+    return size / f32(font.sizes[glyph.font_index])
+}
+
+font_line_advance :: proc(font: ^Font, glyph: ^Font_Glyph, size: f32) -> f32 {
+    if !font_validate(font) {
+        return 0.0
+    }
+
+    scaling_factor := font_scaling_factor(font, glyph, size)
+    return (font.line_advances[glyph.font_index]) * scaling_factor
+}
+
+font_glyph_metrics :: proc(font: ^Font, glyph: ^Font_Glyph, size: f32) -> (sf: f32, bl: f32, la: f32, adv: f32) {
+    if !font_validate(font) {
+        return 0.0, 0.0, 0.0, 0.0
+    }
+
+    sf = font_scaling_factor(font, glyph, size)
+    bl = font.baselines[glyph.font_index] * sf
+    la = font.line_advances[glyph.font_index] * sf
+    adv = glyph.advance * sf
+    return
 }

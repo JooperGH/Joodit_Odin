@@ -27,6 +27,7 @@ App :: struct {
     running: b32,
     last_time: f32,
     window: glfw.WindowHandle,
+    monitor: glfw.MonitorHandle,
 }
 
 Event_Fn :: #type proc(rawptr, ^App, ^Event) -> b32
@@ -54,8 +55,8 @@ app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720)
     
     log.debug(log.Level.Debug, "Creating window...")
     
-    monitor := glfw.GetPrimaryMonitor()
-    video_mode := glfw.GetVideoMode(monitor)
+    app.monitor = glfw.GetPrimaryMonitor()
+    video_mode := glfw.GetVideoMode(app.monitor)
     glfw.WindowHint(glfw.DECORATED, 0)
 	app.window = glfw.CreateWindow(width, height, strings.clone_to_cstring(app.title, context.temp_allocator), nil, nil)
     if app.window == nil {
@@ -117,14 +118,15 @@ app_finish_tasks :: proc(app: ^App) {
 }
 
 app_shutdown :: proc(app: ^App) {
+    thread.pool_join(&app.pool)
+    thread.pool_destroy(&app.pool)
+
     for layer in app.layers {
         layer.on_detach(layer.data, app)
         free(layer)
     }
-
     delete(app.layers)
-    thread.pool_join(&app.pool)
-    thread.pool_destroy(&app.pool)
+
     glfw.DestroyWindow(app.window)
     glfw.Terminate()
     free(app)
@@ -175,6 +177,44 @@ app_push_layer :: proc(app: ^App,
     layer.on_render = on_render
     layer.on_event = on_event
     append(&app.layers, layer)
+}
+
+@(private)
+window_pos_size: Rect
+
+app_get_fullscreen :: proc(app: ^App) -> b32 {
+    return glfw.GetWindowMonitor(app.window) != nil
+} 
+
+app_toggle_fullscreen :: proc(app: ^App) {
+    fullscreen := !app_get_fullscreen(app)
+
+    if fullscreen {
+        window_pos_size.xy = app_get_window_pos(app)
+        window_pos_size.zw = app.window_size
+
+        mode := glfw.GetVideoMode(app.monitor)
+        glfw.SetWindowMonitor(app.window, app.monitor, 0, 0, mode.width, mode.height, mode.refresh_rate)
+        //gl.Viewport(0, 0, mode.width, mode.height)
+        app->event_callback(events_window_moved(Vec2{0, 0}))
+        app->event_callback(events_window_resize(Vec2{f32(mode.width), f32(mode.height)}))
+    } else {
+        glfw.SetWindowMonitor(app.window, nil, i32(window_pos_size.x), i32(window_pos_size.y), i32(window_pos_size.z), i32(window_pos_size.w), 0)
+        //gl.Viewport(0, 0, i32(window_pos_size.z), i32(window_pos_size.w))
+        app->event_callback(events_window_moved(window_pos_size.xy))
+        app->event_callback(events_window_resize(window_pos_size.zw))
+    }
+} 
+
+app_minimize_window :: proc(app: ^App) {
+    glfw.IconifyWindow(app.window)
+} 
+
+app_mouse_position_screen_space :: proc(app: ^App) -> [2]i32 {
+    x64, y64 : f64 = glfw.GetCursorPos(app.window)
+    wpx, wpy : i32 = glfw.GetWindowPos(app.window)
+    x, y : i32 = i32(x64) + wpx, i32(y64) + wpy
+    return {x, y}
 }
 
 event_dispatch :: proc(data: rawptr, e: ^Event, app: ^App, $T: typeid, fn: Event_Fn) -> b32 {

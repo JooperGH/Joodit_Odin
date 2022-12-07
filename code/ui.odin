@@ -38,7 +38,8 @@ UI_State :: struct {
     hash: []UI_Widget,
     root: ^UI_Widget,
     parent_stack: [dynamic]^UI_Widget,
-    flag_stack: [dynamic]UI_Widget_Flags,
+    flag_add_stack: [dynamic]UI_Widget_Flags,
+    flag_rem_stack: [dynamic]UI_Widget_Flags,
     
     null: UI_ID,
     hot: UI_ID,
@@ -63,21 +64,22 @@ ui_init :: proc(app: ^App) {
     ui.hash = make([]UI_Widget, 8192)
     ui.root = ui_widget_create_root("_ROOT_")
     ui.parent_stack = make([dynamic]^UI_Widget, 0, 10)
-    ui.flag_stack = make([dynamic]UI_Widget_Flags, 0, 10)
+    ui.flag_add_stack = make([dynamic]UI_Widget_Flags, 0, 10)
+    ui.flag_rem_stack = make([dynamic]UI_Widget_Flags, 0, 10)
 
     ui.null, _ = ui_get_id("")
     ui.hot = ui.null
     ui.active = ui.null
 
     ui.font_size = 32.0
-    font_load(&ui.font, app, "fonts/OpenSans-Regular.ttf", 30, Font_Glyph_Range_Default, Font_Raster_Type.SDF, 2048, 2048, false)
+    font_load(&ui.font, app, []string{"fonts/OpenSans-Regular.ttf"}, []i32{30}, []Font_Glyph_Range{font_glyph_range_default(context.temp_allocator)}, false)
     
     ui_init_input()
 }
 
-UI_Widget_Loop_Fn :: proc(^UI_Widget)
+UI_Widget_Loop_Fn :: proc(^UI_Widget, rawptr)
 
-ui_widget_ascending_loop :: proc(widget: ^UI_Widget, fn: UI_Widget_Loop_Fn) -> u32 {
+ui_widget_ascending_loop :: proc(widget: ^UI_Widget, data: rawptr, fn: UI_Widget_Loop_Fn) -> u32 {
     count : u32 = 0
 
     if widget == nil {
@@ -88,18 +90,18 @@ ui_widget_ascending_loop :: proc(widget: ^UI_Widget, fn: UI_Widget_Loop_Fn) -> u
         sentinel := widget.first
         for sentinel != nil {
             next := sentinel.next
-            count += ui_widget_ascending_loop(sentinel, fn)
+            count += ui_widget_ascending_loop(sentinel, data, fn)
             sentinel = next
         }
     }
 
     count += 1
-    fn(widget)
+    fn(widget, data)
 
     return count
 }
 
-ui_widget_descending_loop :: proc(widget: ^UI_Widget, fn: UI_Widget_Loop_Fn) -> u32 {
+ui_widget_descending_loop :: proc(widget: ^UI_Widget, data: rawptr, fn: UI_Widget_Loop_Fn) -> u32 {
     count : u32 = 0
 
     if widget == nil {
@@ -107,17 +109,17 @@ ui_widget_descending_loop :: proc(widget: ^UI_Widget, fn: UI_Widget_Loop_Fn) -> 
     }
 
     count += 1
-    fn(widget)
+    fn(widget, data)
 
     if widget.first != nil {
         sentinel := widget.first
         for sentinel.next != nil {
-            count += ui_widget_descending_loop(sentinel, fn)
+            count += ui_widget_descending_loop(sentinel, data, fn)
             sentinel = sentinel.next
         }
     }
 
-    count += ui_widget_descending_loop(widget.last, fn)
+    count += ui_widget_descending_loop(widget.last, data, fn)
 
     return count
 }
@@ -131,31 +133,248 @@ ui_begin :: proc() {
     ui_push_parent(ui.root)
 }
 
+UI_Layout :: struct {
+    pos: Vec2,
+}
+
 ui_end :: proc() {
     ui_pop_parent()
     assert(len(ui.parent_stack) == 0)
-    assert(len(ui.flag_stack) == 0)
+    assert(len(ui.flag_add_stack) == 0)
+    assert(len(ui.flag_rem_stack) == 0)
 
     // DO LAYOUT HERE
-    
-    ui_widget_descending_loop(ui.root, proc(w: ^UI_Widget) {
-        if w.parent == nil {
-            ui_layout_root(w)
-            return
-        } 
 
-        w.size = ui_layout_calc_size(w)
-        ui_layout_calc_pos(w)
-        w.rect = rect_from_pos_dim(w.pos, w.size) 
-        w.available_rect = w.rect
+    ui_layout_root(ui.root)
+
+    // Layout - Step 1
+    layout: UI_Layout
+    ui_widget_descending_loop(ui.root, cast(rawptr)&layout, proc(w: ^UI_Widget, data: rawptr) {
+        if w.parent == nil do return
+        layout := cast(^UI_Layout)data
+
+        text_content_dim := ui_size_is_kind(w, UI_Size_Kind.TextContent) ? text_dim(ui.font, w.str, ui.font_size) : Vec2{0, 0}
+
+        if ui_size_is_kind(w, UI_Axis.X, UI_Size_Kind.Pixels) {
+            w.size.x = w.semantic_sizes[.X].value
+        } else if ui_size_is_kind(w, UI_Axis.X, UI_Size_Kind.TextContent) {
+            w.size.x = text_content_dim.x
+        }
+        
+        if ui_size_is_kind(w, UI_Axis.Y, UI_Size_Kind.Pixels) {
+            w.size.y = w.semantic_sizes[.Y].value
+        } else if ui_size_is_kind(w, UI_Axis.Y, UI_Size_Kind.TextContent) {
+            w.size.y = text_content_dim.y
+        }
+    })
+    
+    // Layout - Step 2
+    ui_widget_descending_loop(ui.root, cast(rawptr)&layout, proc(w: ^UI_Widget, data: rawptr) {
+        if w.parent == nil do return
+        layout := cast(^UI_Layout)data
+ 
+        if ui_size_is_kind(w, UI_Axis.X, UI_Size_Kind.PercentOfParent) {
+            w.size.x = w.parent.size.x * w.semantic_sizes[.X].value
+        }
+
+        if ui_size_is_kind(w, UI_Axis.Y, UI_Size_Kind.PercentOfParent) {
+            w.size.y = w.parent.size.y * w.semantic_sizes[.Y].value
+        }
     })
 
-    ui_widget_descending_loop(ui.root, proc(w: ^UI_Widget) {
+    // Can optimize this
+    ui_widget_descending_loop(ui.root, cast(rawptr)&layout, proc(w: ^UI_Widget, data: rawptr) {
+        if w.parent == nil do return
+        layout := cast(^UI_Layout)data
+        
+        is_leftover_x_or_y := ui_size_is_kind(w, UI_Size_Kind.LeftoverChildSum)
+        if !is_leftover_x_or_y {
+            return
+        }
+
+        num_leftovers_x, num_leftovers_y: i32
+        total_size_x, total_size_y: f32
+        sentinel := w.parent.first
+        for sentinel != nil {
+            if !ui_size_is_kind(sentinel, UI_Size_Kind.LeftoverChildSum) {
+                total_size_x += sentinel.size.x
+                total_size_y += sentinel.size.y
+            } else {
+                if ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.LeftoverChildSum) {
+                    num_leftovers_x += 1
+                }
+                if ui_size_is_kind(sentinel, UI_Axis.Y, UI_Size_Kind.LeftoverChildSum) {
+                    num_leftovers_y += 1 
+                }
+            }
+            sentinel = sentinel.next
+        }
+
+        if ui_size_is_kind(w, UI_Axis.X, UI_Size_Kind.LeftoverChildSum) {
+            w.size.x = (w.parent.size.x - total_size_x)*(w.semantic_sizes[.X].value != 0.0 ? w.semantic_sizes[.X].value : (1.0/f32(num_leftovers_x)))
+        }
+
+        if ui_size_is_kind(w, UI_Axis.Y, UI_Size_Kind.LeftoverChildSum) {
+            w.size.y = (w.parent.size.y - total_size_y)*(w.semantic_sizes[.Y].value != 0.0 ? w.semantic_sizes[.Y].value : (1.0/f32(num_leftovers_y)))
+        }
+    })
+
+    // FillX, FillY Loop
+    ui_widget_descending_loop(ui.root, cast(rawptr)&layout, proc(w: ^UI_Widget, data: rawptr) {
+        layout := cast(^UI_Layout)data
+
+        if w.first != nil {
+            parent_pad := ui_widget_calc_pad(w)
+
+            total_size_x, total_size_y: f32 = 0, 0
+            sentinel := w.first
+            for sentinel != nil {
+                if .FillY not_in sentinel.flags {
+                    total_size_x += sentinel.size.x + parent_pad.x
+                } else {
+                    total_size_x = max(total_size_x, sentinel.size.x + parent_pad.x)
+                }
+
+                if .FillX not_in sentinel.flags {
+                    total_size_y += sentinel.size.y + parent_pad.y
+                } else {
+                    total_size_y = max(total_size_y, sentinel.size.y + parent_pad.y)
+                }
+
+                sentinel = sentinel.next
+            }
+
+            if total_size_y > w.size.y {
+                // Fix x sizes
+                // Priority is removing size from spacers
+
+                required_size_reduction := total_size_y - w.size.y + parent_pad.y
+
+                total_percent_of_parent_count: i32 = 0
+                total_percent_of_parent_size_y: f32 = 0.0
+                total_spacer_count: i32 = 0
+                total_spacer_size_y: f32 = 0.0
+                sentinel = w.first
+                for sentinel != nil {
+                    if ui_size_is_kind(sentinel, UI_Axis.Y, UI_Size_Kind.LeftoverChildSum) && ui_match_null(sentinel) {
+                        total_spacer_size_y += sentinel.size.y
+                        total_spacer_count += 1
+                    }
+                    if ui_size_is_kind(sentinel, UI_Axis.Y, UI_Size_Kind.PercentOfParent) {
+                        total_percent_of_parent_size_y += sentinel.size.y
+                        total_percent_of_parent_count += 1
+                    }
+                    sentinel = sentinel.next
+                }
+
+                if total_spacer_count > 0 {
+                    if total_spacer_size_y >= required_size_reduction {
+                        
+                        sentinel = w.first
+                        for sentinel != nil {
+                            if ui_size_is_kind(sentinel, UI_Axis.Y, UI_Size_Kind.LeftoverChildSum) && ui_match_null(sentinel) {
+                                sentinel.size.y -= required_size_reduction/f32(total_spacer_count)
+                            }
+                            sentinel = sentinel.next
+                        }
+                    }
+                } else {
+                    if total_percent_of_parent_count > 0 {
+                        sentinel = w.first
+                        for sentinel != nil {
+                            if ui_size_is_kind(sentinel, UI_Axis.Y, UI_Size_Kind.PercentOfParent) {
+                                sentinel.size.y -= required_size_reduction/f32(total_percent_of_parent_count)
+                            }
+                            sentinel = sentinel.next
+                        }
+                    }
+                }
+            }
+
+            if total_size_x > w.size.x {
+                // Fix x sizes
+                // Priority is removing size from spacers
+    
+                required_size_reduction := total_size_x - w.size.x + parent_pad.x
+    
+                total_percent_of_parent_count: i32 = 0
+                total_percent_of_parent_size_x: f32 = 0.0
+                total_spacer_count: i32 = 0
+                total_spacer_size_x: f32 = 0.0
+                sentinel = w.first
+                for sentinel != nil {
+                    if ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.LeftoverChildSum) && ui_match_null(sentinel) {
+                        total_spacer_size_x += sentinel.size.x
+                        total_spacer_count += 1
+                    }
+                    if ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.PercentOfParent) {
+                        total_percent_of_parent_size_x += sentinel.size.x
+                        total_percent_of_parent_count += 1
+                    }
+                    sentinel = sentinel.next
+                }
+    
+                if total_spacer_count > 0 {
+                    if total_spacer_size_x >= required_size_reduction {
+                        
+                        sentinel = w.first
+                        for sentinel != nil {
+                            if ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.LeftoverChildSum) && ui_match_null(sentinel) {
+                                sentinel.size.x -= required_size_reduction/f32(total_spacer_count)
+                            }
+                            sentinel = sentinel.next
+                        }
+                    }
+                } else {
+                    if total_percent_of_parent_count > 0 {
+                        sentinel = w.first
+                        for sentinel != nil {
+                            if ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.PercentOfParent) {
+                                sentinel.size.x -= required_size_reduction/f32(total_percent_of_parent_count)
+                            }
+                            sentinel = sentinel.next
+                        }
+                    }
+                }
+            }
+        }
+    })
+
+    ui_widget_descending_loop(ui.root, cast(rawptr)&layout, proc(w: ^UI_Widget, data: rawptr) {
+        if w.parent == nil do return
+        layout := cast(^UI_Layout)data
+
+        parent := w.parent
+
+        pad := ui_widget_calc_pad(parent)
+
+        w.pos.x = parent.available_rect.x + 0.5*pad.x + w.offset.x
+        w.pos.y = parent.available_rect.w - 0.5*pad.y - w.size.y + w.offset.y
+
+        if .FillY in w.flags do parent.available_rect.w -= w.size.y + pad.y
+        if .FillX in w.flags do parent.available_rect.x += w.size.x + pad.x
+
+        w.rect = rect_from_pos_dim(w.pos, w.size)
+        w.available_rect = w.rect
+    })
+    //ui_widget_descending_loop(ui.root, proc(w: ^UI_Widget) {
+    //    if w.parent == nil {
+    //        
+    //        return
+    //    } 
+    //
+    //    w.size = ui_layout_calc_size(w)
+    //    ui_layout_calc_pos(w)
+    //    w.rect = rect_from_pos_dim(w.pos, w.size) 
+    //    w.available_rect = w.rect
+    //})
+
+    ui_widget_descending_loop(ui.root, nil, proc(w: ^UI_Widget, data: rawptr) {
         if .Ignore in w.flags {
             return
         }
 
-        pad_anim_factor : f32 = 4.0*ui_widget_anim(w, 0.25, 8.0)
+        pad_anim_factor : f32 = 5.0*0.5*(ui_widget_hot_anim(w) + ui_widget_active_anim(w))
         pad_anim_pad := Vec2{
             pad_anim_factor,
             pad_anim_factor,
@@ -186,21 +405,31 @@ ui_end :: proc() {
 		}
     })
     
-    ui.widget_count = ui_widget_ascending_loop(ui.root, proc(w: ^UI_Widget) {
+    ui.hot = ui.null
+    ui.active = ui.null
+    
+    ui.widget_count = ui_widget_ascending_loop(ui.root, nil, proc(w: ^UI_Widget, data: rawptr) {
+        w.i = ui_widget_interaction(w)
+        
+        if ui.hot == ui.null && (w.hot_condition != nil ? w->hot_condition() : w.i.hovered)  {
+            ui_set_as_hot(w)
+        }
+
+        if ui.active == ui.null && ui_match_hot(w) && (w.active_condition != nil ? w->active_condition() : false) {
+            ui_set_as_active(w)
+        }
+
         w.parent = nil
         w.first = nil
         w.last = nil
         w.next = nil
         w.prev = nil
-
+        
         w.hot_t -= 2.0*ui.app.dt
         w.active_t -= 2.0*ui.app.dt
         if w.hot_t <= 0.0 do w.hot_t = 0.0
         if w.active_t <= 0.0 do w.active_t = 0.0
     })
-
-    ui.hot = ui.null
-    ui.active = ui.null
 }
 
 ui_free :: proc() {

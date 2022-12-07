@@ -4,6 +4,8 @@ import "core:slice"
 import "core:fmt"
 import "core:log"
 import "core:mem"
+import "core:math"
+import "core:unicode/utf8"
 import la "core:math/linalg/glsl"
 
 import gl "vendor:OpenGL"
@@ -297,24 +299,26 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Te
     }
     
     first_r := true
-    render_mode := font_get_render_mode(font)
+    render_mode : f32 = 2.0
     vertices := [4]Vertex{}
     cpos := pos + text_rect_options_offset(options, text_dim(font, text, size))
-    for r := 0; r < len(text); r += 1 {
-        rune_a := rune(text[r])
-        rune_b := r < len(text)-2 ? rune(text[r+1]) : rune(-1)
+    
+    runes := utf8.string_to_runes(text, context.temp_allocator)
+    for r := 0; r < len(runes); r += 1 {
+        rune_a := runes[r]
+        rune_b := ((len(runes) > 1) && (r < len(runes)-2)) ? runes[r+1] : rune(-1)
         glyph, ok := font.glyphs[rune_a]
         glyph_b, ok_b := font.glyphs[rune_b]
         
         if ok {
-            scaling_factor := (size/f32(font.size))
+            sf, bl, _, adv := font_glyph_metrics(font, &glyph, size)
             
-            x := cpos.x + glyph.offset.x*scaling_factor - (first_r ? glyph.lsb*scaling_factor : 0.0)
-            y := cpos.y - glyph.offset.y*scaling_factor
+            x := math.floor_f32(cpos.x) + glyph.x0
+            y := math.floor_f32(cpos.y) - glyph.y0
 
-            eff_dim := glyph.dim * scaling_factor
+            eff_dim := sf*Vec2{glyph.x1-glyph.x0, glyph.y0-glyph.y1}
 
-            rect := [4]f32{x, y, x+eff_dim.x, y-eff_dim.y}
+            rect := [4]f32{x, y, x+eff_dim.x, y+eff_dim.y}
             if first_r {
                 result = rect
                 first_r = false
@@ -327,7 +331,7 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Te
             quad := [4]Vertex{
                 {
                     { -1, -1 },
-                    { glyph.uv.x, glyph.uv.w },
+                    { glyph.u0, glyph.v0 },
                     color,
                     {},
                     f32(slot),
@@ -337,7 +341,7 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Te
                 },
                 {
                     { 1, -1 },
-                    { glyph.uv.z, glyph.uv.w },
+                    { glyph.u1, glyph.v0 },
                     color,
                     {},
                     f32(slot),
@@ -347,7 +351,7 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Te
                 },
                 {
                     { 1, 1 },
-                    { glyph.uv.z, glyph.uv.y },
+                    { glyph.u1, glyph.v1 },
                     color,
                     {},
                     f32(slot),
@@ -357,7 +361,7 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Te
                 },
                 {
                     { -1, 1 },
-                    { glyph.uv.x, glyph.uv.y },
+                    { glyph.u0, glyph.v1 },
                     color,
                     {},
                     f32(slot),
@@ -373,7 +377,7 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Te
                 extra = font_glyph_kern(font, &glyph, &glyph_b)
             }
 
-            cpos.x += (glyph.advance + extra) * scaling_factor
+            cpos.x += adv + extra * sf
         }
     }
 

@@ -1,50 +1,68 @@
 package main
 
-ui_button :: proc(text: string) -> UI_Widget_Interaction {
-    widget := ui_widget_create({.Clickable,
-                                .DrawBackground,
-                                .DrawBorder,
-                                .DrawText,
-                                .HotAnimation,
-                                .ActiveAnimation},
-                                text)
+import "core:log"
+import "core:math"
 
-    i := ui_widget_interaction(widget)
+ui_slider_f32 :: proc(text: string, value: ^f32, min: f32, max: f32) -> ^UI_Widget {
+    widget := ui_widget({.DrawBackground,
+                        .DrawBorder,
+                        .FillY},
+                        text)
+    widget.semantic_sizes[.X] = {
+        .LeftoverChildSum,
+        0.5,
+        0.9,
+    }
+    widget.semantic_sizes[.Y] = {
+        .PercentOfParent,
+        1.0,
+        0.0,
+    }
+
+    ui_push_parent(widget)
+
+
+
+    ui_pop_parent()
     
-    if i.hovered {
-        ui_set_as_hot(widget)
-    }
-
-    if i.left_down && ui_match_hot(widget) {
-        ui_set_as_active(widget)
-    }
-
-    return i
+    return widget
 }
 
-ui_text :: proc(text: string) -> UI_Widget_Interaction {
-    widget := ui_widget_create({.DrawText,
-                                .TextAnimation,
-                                .HotAnimation,
-                                .ActiveAnimation},
-                                text)
-
-    i := ui_widget_interaction(widget)
-    
-    if i.hovered {
-        ui_set_as_hot(widget)
+ui_button :: proc(text: string) -> ^UI_Widget {
+    widget := ui_widget({.Clickable,
+                        .DrawBackground,
+                        .DrawBorder,
+                        .DrawText,
+                        .HotAnimation,
+                        .ActiveAnimation,
+                        .FillY},
+                        text)
+    widget.active_condition = proc(w: ^UI_Widget) -> b32 {
+        return w.i.left_clicked
     }
-
-    return i
+    return widget
 }
 
-ui_bar :: proc(text: string) -> UI_Widget_Interaction {
-    widget := ui_widget_create({.Clickable,
-                                .DrawBackground,
-                                .DrawBorder,
-                                .HorPad,
-                                .VerPad},
-                                text)
+ui_text :: proc(text: string) -> ^UI_Widget {
+    widget := ui_widget({.DrawText,
+                        .TextAnimation,
+                        .HotAnimation,
+                        .ActiveAnimation,
+                        .FillY},
+                        text)
+
+    return widget
+}
+
+ui_bar :: proc(text: string) -> ^UI_Widget {
+    widget := ui_widget({.Clickable,
+                        .DrawBackground,
+                        .DrawBorder,
+                        .FillY},
+                        text)
+    widget.active_condition = proc(w: ^UI_Widget) -> b32 {
+        return w.i.left_down
+    }
 
     widget.semantic_sizes[.X] = {
         .PercentOfParent,
@@ -53,24 +71,19 @@ ui_bar :: proc(text: string) -> UI_Widget_Interaction {
     }
     widget.semantic_sizes[.Y] = {
         .Pixels,
-        text_line_advance(ui.font, ui.font_size),
+        font_fallback_scaling_factor(ui.font, ui.font_size),
         0.0,
     }
 
-    i := ui_widget_interaction(widget)
-    return i
+    return widget
 }
 
-ui_panel :: proc(text: string) -> UI_Widget_Interaction {
-    widget := ui_widget_create({.Clickable,
-                                .DrawBackground,
-                                .DrawBorder,
-                                .HorPad,
-                                .VerPad,
-                                .HotAnimation,
-                                .ActiveAnimation},
-                                text)
-
+ui_panel :: proc(text: string) -> ^UI_Widget {
+    widget := ui_widget({.DrawBackground,
+                        .DrawBorder,
+                        .FillY},
+                        text)
+                            
     widget.semantic_sizes[.X] = {
         .PercentOfParent,
         1.0,
@@ -85,36 +98,28 @@ ui_panel :: proc(text: string) -> UI_Widget_Interaction {
     widget.style.gradient = false
     widget.style.colors[.Border] = {1.0, 1.0, 0.0, 1.0}
 
-    i := ui_widget_interaction(widget)
-    return i
+    return widget
 }
 
-ui_spacer :: proc() {
-    w := ui_widget_create({.Ignore}, "")
-
+ui_spacer :: proc(free_space_ratio: f32 = 0.0, threshold: f32 = 0.9) {
+    w := ui_widget({.Ignore}, "")
     assert(!(.FillX in w.flags && .FillY in w.flags))
-
     if .FillX in w.flags {
-        w.semantic_sizes[.X] = {
-            .LeftoverChildSum,
-            1.0,
-            0.0,
-        }
-        w.semantic_sizes[.Y] = {
-            .PercentOfParent,
-            1.0,
-            0.0,
-        }
-    } else if (.FillY in w.flags) || (.FillX not_in w.flags && .FillX not_in w.flags) {
-        w.semantic_sizes[.X] = {
-            .PercentOfParent,
-            1.0,
-            0.0,
-        }
-        w.semantic_sizes[.Y] = {
-            .LeftoverChildSum,
-            1.0,
-            0.0,
-        }
+        w.semantic_sizes[.X].kind = .LeftoverChildSum
+        w.semantic_sizes[.X].value = free_space_ratio
+        w.semantic_sizes[.X].threshold = threshold
     }
+    if .FillY in w.flags {
+        w.semantic_sizes[.Y].kind = .LeftoverChildSum
+        w.semantic_sizes[.Y].value = free_space_ratio
+        w.semantic_sizes[.Y].threshold = threshold
+    }
+}
+
+ui_begin_row :: proc() {
+    ui_push_flags({.FillX}, {.FillY})
+}
+
+ui_end_row :: proc() {
+    ui_pop_flags()
 }
