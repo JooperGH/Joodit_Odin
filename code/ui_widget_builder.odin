@@ -31,6 +31,8 @@ UI_Widget_Flag :: enum {
     FillY,
     PadX,
     PadY,
+    CenterX,
+    CenterY,
     Clickable,
     Draggable,
     DrawBorder,

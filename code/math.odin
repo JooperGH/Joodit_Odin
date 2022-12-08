@@ -1,5 +1,7 @@
 package main
 
+import "core:math"
+
 Vec2 :: [2]f32
 Vec3 :: [3]f32
 Vec4 :: [4]f32
@@ -26,7 +28,7 @@ rect_center :: #force_inline proc(r: Rect) -> Vec2 {
 }
 
 rect_dim :: #force_inline proc(r: Rect) -> Vec2 {
-    return Vec2{r.z-r.x, r.w-r.y}
+    return Vec2{math.abs(r.z-r.x), math.abs(r.w-r.y)}
 }
 
 rect_from_center_dim :: #force_inline proc(center: Vec2, dim: Vec2) -> Rect {

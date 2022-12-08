@@ -280,7 +280,6 @@ render_texture :: proc(texture: ^Texture, rect: Rect, color: Color, roundness: f
 
 render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, color: Vec4) {
     font_atlas := font.container
-
     if !font_atlas_validate(font_atlas) {
         return
     }
@@ -300,14 +299,14 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, color: Vec4
     }
     
     vertices := [4]Vertex{}
-    cpos := pos
+    cpos := Vec2{math.floor(pos.x), math.floor(pos.y)}
     runes := utf8.string_to_runes(text, context.temp_allocator)
     for r := 0; r < len(runes); r += 1 {
         glyph, ok := font.glyphs[runes[r]]
         
         if ok {
-            x := math.floor_f32(cpos.x) + glyph.x0
-            y := math.floor_f32(cpos.y) + glyph.y0
+            x := cpos.x + glyph.x0
+            y := cpos.y + glyph.y0
 
             eff_dim := Vec2{glyph.x1-glyph.x0, glyph.y1-glyph.y0}
 

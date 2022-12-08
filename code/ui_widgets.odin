@@ -33,12 +33,19 @@ ui_button :: proc(text: string) -> ^UI_Widget {
                         .DrawBackground,
                         .DrawBorder,
                         .DrawText,
+                        .CenterX,
+                        .CenterY,
                         .HotAnimation,
                         .ActiveAnimation,
                         .FillY},
                         text)
     widget.active_condition = proc(w: ^UI_Widget) -> b32 {
         return w.i.left_clicked
+    }
+    widget.semantic_sizes[.Y] = {
+        .PercentOfParent,
+        1.0,
+        0.0,
     }
     return widget
 }

@@ -75,6 +75,8 @@ ui_init :: proc(app: ^App) {
     ui.font_size = 32.0
     ui.font_atlas = font_atlas_create()
     ui.font = font_atlas_add_font_from_ttf(ui.font_atlas, app, "fonts/OpenSans-Regular.ttf", 30.0)
+    ui.font.configs[0].oversample_x = 2
+    ui.font.configs[0].oversample_y = 2
     font_atlas_build(ui.font_atlas)
     
     ui_init_input()
@@ -156,8 +158,8 @@ ui_end :: proc() {
         if w.parent == nil do return
         layout := cast(^UI_Layout)data
 
-        text_content_dim := ui_size_is_kind(w, UI_Size_Kind.TextContent) ? text_dim(ui.font, w.str, ui.font_size) : Vec2{0, 0}
-
+        text_content_dim := ui_size_is_kind(w, UI_Size_Kind.TextContent) ? calc_text_size(ui.font, w.str, ui.font_size) : Vec2{0, 0}
+        
         if ui_size_is_kind(w, UI_Axis.X, UI_Size_Kind.Pixels) {
             w.size.x = w.semantic_sizes[.X].value
         } else if ui_size_is_kind(w, UI_Axis.X, UI_Size_Kind.TextContent) {
@@ -352,9 +354,9 @@ ui_end :: proc() {
         pad := ui_widget_calc_pad(parent)
 
         w.pos.x = parent.available_rect.x + 0.5*pad.x + w.offset.x
-        w.pos.y = parent.available_rect.w - 0.5*pad.y - w.size.y + w.offset.y
+        w.pos.y = parent.available_rect.y + 0.5*pad.y + w.offset.y
 
-        if .FillY in w.flags do parent.available_rect.w -= w.size.y + pad.y
+        if .FillY in w.flags do parent.available_rect.y += w.size.y + pad.y
         if .FillX in w.flags do parent.available_rect.x += w.size.x + pad.x
 
         w.rect = rect_from_pos_dim(w.pos, w.size)
@@ -404,7 +406,22 @@ ui_end :: proc() {
 		if .DrawText in w.flags {
             anim := .TextAnimation in w.flags ? ui_widget_anim(w, 0.5) : 0.0
             color := anim*Color{1.0, 1.0, 0.0, 1.0}+(1.0-anim)*Color{1, 1, 1, 1}
-			render(ui.font, w.str, ui.font_size, rect_center(w.rect), color)
+
+            text_pos := w.rect.xw
+            if .CenterX in w.flags || .CenterY in w.flags {
+                text_size := calc_text_size(ui.font, w.str, ui.font_size)
+                rect_size := rect_dim(w.rect)
+    
+                offset := 0.5*(rect_size-text_size)
+    
+                if .CenterX in w.flags {
+                    text_pos.x += offset.x
+                } 
+                if .CenterY in w.flags {
+                    text_pos.y -= offset.y
+                } 
+            }
+			render(ui.font, w.str, ui.font_size, text_pos, color)
 		}
     })
     
