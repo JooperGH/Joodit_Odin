@@ -8,6 +8,18 @@ Rect :: [4]f32
 Color :: [4]f32
 Gradient :: [2]Color
 
+next_pow_2 :: #force_inline proc(v: u32) -> u32 {
+    result := v
+    result -= 1
+    result |= result >> 1
+    result |= result >> 2
+    result |= result >> 4
+    result |= result >> 8
+    result |= result >> 16
+    result += 1
+    return result
+}
+
 rect_center :: #force_inline proc(r: Rect) -> Vec2 {
     half_dim := 0.5*rect_dim(r)
     return r.xy + half_dim

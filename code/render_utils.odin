@@ -1,5 +1,8 @@
 package main
 
+import "core:unicode/utf8"
+import "core:math"
+
 Text_Render_Operation :: enum {Center, Hor_Left, Hor_Right,
                                Ver_Top, Ver_Bottom}
 
@@ -14,20 +17,23 @@ text_dim :: proc(font: ^Font, text: string, size: f32) -> Vec2 {
 
     first_r := true
     cpos := Vec2{0, 0}
-    for r := 0; r < len(text); r += 1 {
-        rune_a := rune(text[r])
-        rune_b := r < len(text)-2 ? rune(text[r+1]) : rune(-1)
+    runes := utf8.string_to_runes(text, context.temp_allocator)
+    la : f32 = 0.0
+    for r := 0; r < len(runes); r += 1 {
+        rune_a := runes[r]
+        rune_b := ((len(runes) > 1) && (r < len(runes)-2)) ? runes[r+1] : rune(-1)
         glyph, ok := font.glyphs[rune_a]
         glyph_b, ok_b := font.glyphs[rune_b]
-        
+    
         if ok {
-            scaling_factor := (size/f32(font.size))
+            sf, bl, la_, adv := font_glyph_metrics(font, &glyph, size)
+            la = max(la, la_)
             
-            x := cpos.x + glyph.offset.x*scaling_factor - (first_r ? glyph.lsb*scaling_factor : 0.0)
-            y := cpos.y - glyph.offset.y*scaling_factor
-            eff_dim := glyph.dim * scaling_factor
+            x := math.floor_f32(cpos.x) + glyph.x0
+            y := math.floor_f32(cpos.y) + glyph.y0
+            eff_dim := sf*Vec2{glyph.x1-glyph.x0, glyph.y1-glyph.y0}
 
-            r_rect := Rect{x, y-eff_dim.y, x+eff_dim.x, y}
+            r_rect := Rect{x, y, x+eff_dim.x, y+eff_dim.y}
             if first_r {
                 result = r_rect
                 first_r = false
@@ -39,12 +45,12 @@ text_dim :: proc(font: ^Font, text: string, size: f32) -> Vec2 {
             if ok && ok_b {
                 extra = font_glyph_kern(font, &glyph, &glyph_b)
             }
-            cpos.x += (glyph.advance + extra) * scaling_factor
+            cpos.x += adv + extra * sf 
         }
     }
 
     dim := rect_dim(result)
-    return {dim.x, text_line_advance(font, size)}
+    return {dim.x, la}
 }
 
 text_rect :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options : Text_Render_Options = {.Center}) -> Rect {
@@ -56,19 +62,21 @@ text_rect :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options : Tex
 
     first_r := true
     cpos := pos
-    scaling_factor := (size/f32(font.size))
-    for r := 0; r < len(text); r += 1 {
-        rune_a := rune(text[r])
-        rune_b := r < len(text)-2 ? rune(text[r+1]) : rune(-1)
+    runes := utf8.string_to_runes(text, context.temp_allocator)
+    for r := 0; r < len(runes); r += 1 {
+        rune_a := runes[r]
+        rune_b := r < len(text)-1 ? runes[r+1] : rune(-1)
         glyph, ok := font.glyphs[rune_a]
         glyph_b, ok_b := font.glyphs[rune_b]
         
         if ok {
-            x := cpos.x + glyph.offset.x*scaling_factor - (first_r ? glyph.lsb*scaling_factor : 0.0)
-            y := cpos.y - glyph.offset.y*scaling_factor
-            eff_dim := glyph.dim * scaling_factor
+            sf, bl, la_, adv := font_glyph_metrics(font, &glyph, size)
 
-            r_rect := Rect{x, y-eff_dim.y, x+eff_dim.x, y}
+            x := math.floor_f32(cpos.x) + glyph.x0 
+            y := math.floor_f32(cpos.y) + glyph.y0
+            eff_dim := sf*Vec2{glyph.x1-glyph.x0, glyph.y1-glyph.y0}
+
+            r_rect := Rect{x, y, x+eff_dim.x, y+eff_dim.y}
             if first_r {
                 result = r_rect
                 first_r = false
@@ -80,7 +88,7 @@ text_rect :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options : Tex
             if ok && ok_b {
                 extra = font_glyph_kern(font, &glyph, &glyph_b)
             }
-            cpos.x += (glyph.advance + extra) * scaling_factor
+            cpos.x += adv + extra * sf 
         }
     }
 
@@ -102,13 +110,4 @@ text_rect_options_offset :: proc(options: Text_Render_Options, dim: Vec2) -> Vec
         result.y += 0.5*dim.y
     }
     return result
-}
-
-text_line_advance :: #force_inline proc(font: ^Font, size: f32) -> f32 {
-    if !font_validate(font) {
-        return 0.0
-    }
-
-    scaling_factor := (size/f32(font.size))
-    return (font.line_advance) * scaling_factor
 }

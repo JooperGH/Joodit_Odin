@@ -29,51 +29,51 @@ editor_layer_on_event :: proc(data: rawptr, app: ^App, e: ^Event) {
 editor_layer_on_update :: proc(data: rawptr, app: ^App) {
 	editor := cast(^Editor_Layer)data
 
-	i := ui_bar("Menu Bar")
-	i.widget.style.gradient = false
+	w := ui_bar("Menu Bar")
+	w.style.gradient = false
 
-	ui_push_parent(i.widget)
-	ui_push_flags({.FillX})
+	ui_push_parent(w)
+	ui_begin_row()
 	
 	ui_button("File")
 	ui_button("Window")
 	ui_button("Panel")
 	ui_button("View")
 	ui_button("Control")
-	i = ui_button("U")
-	if i.left_clicked {
-		ui.font_size += 1.0
+	ui_spacer()
+	w = ui_slider_f32(format_string("Font Size: %.0f###FontSizeText", ui.font_size), &ui.font_size, 32.0, 50.0)
+	ui_spacer()
+	w.style.gradient = false
+	w.style.colors[.Bg].r *= 2.0
+	w = ui_button("M")
+	w.style.gradient = false
+	w.style.colors[.Bg].g *= 2.0
+	if w.i.left_clicked {
+		app_toggle_fullscreen(app)
 	}
-	
-	i = ui_button("D")
-	if i.left_clicked {
-		ui.font_size -= 1.0
+	w = ui_button("_")
+	w.style.gradient = false
+	w.style.colors[.Bg].rg *= 2.0
+	if w.i.left_clicked {
+		app_minimize_window(app)
 	}
-
-	ui_spacer()	
-	ui_text(format_string("Font Size: %d###FontSizeText", i32(ui.font_size)))
-	i = ui_button("M")
-	i.widget.style.gradient = false
-	i.widget.style.colors[.Bg].g *= 2.0
-	i = ui_button("_")
-	i.widget.style.gradient = false
-	i.widget.style.colors[.Bg].rg *= 2.0
-	i = ui_button("X")
-	i.widget.style.gradient = false
-	i.widget.style.colors[.Bg] = {0.6, 0.1, 0.1, 1.0}
-	if i.left_clicked {
+	w = ui_button("X")
+	w.style.gradient = false
+	w.style.colors[.Bg] = {0.6, 0.1, 0.1, 1.0}
+	if w.i.left_clicked {
 		app.running = false
 	}
-	ui_pop_flags()
+	ui_end_row()
 	ui_pop_parent()
+/*
+	ui_push_flags({.FillY})
+	w = ui_panel("Main Panel")
+	ui_pop_flags()
 
-	i = ui_panel("Main Panel")
-	ui_push_parent(i.widget)
-	ui_push_flags({.FillX})
+	ui_push_parent(w)
 	ui_text(format_string("%s###TextInput", utf8.runes_to_string(ui.text[:], ui.temp_allocator)))
-	ui_pop_flags()
 	ui_pop_parent()
-
+*/
 }
 
 editor_layer_on_render :: proc(data: rawptr, app: ^App) {

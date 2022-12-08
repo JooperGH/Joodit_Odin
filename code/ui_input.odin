@@ -9,6 +9,7 @@ Key_Data :: struct {
     duration: f32,
     prev_duration: f32,
     last_press: f32,
+    last_release: f32,
 }
 
 ui_init_input :: proc() {
@@ -18,6 +19,7 @@ ui_init_input :: proc() {
         k.duration = -1.0
         k.prev_duration = -1.0
         k.last_press = -math.F32_MAX
+        k.last_release = -math.F32_MAX
     }
     
     for k in &ui.buttons {
@@ -26,6 +28,7 @@ ui_init_input :: proc() {
         k.duration = -1.0
         k.prev_duration = -1.0
         k.last_press = -math.F32_MAX
+        k.last_release = -math.F32_MAX
     }
 
     for k in &ui.mods {
@@ -34,6 +37,7 @@ ui_init_input :: proc() {
         k.duration = -1.0
         k.prev_duration = -1.0
         k.last_press = -math.F32_MAX
+        k.last_release = -math.F32_MAX
     }
 
     ui.mouse_pos = {-math.F32_MAX, -math.F32_MAX}
@@ -89,6 +93,8 @@ ui_update_input_events :: proc() {
                     k.double_click = true
                     k.last_press = -math.F32_MAX
                 }
+            } else {
+                k.last_press = time
             }
 
             button_changed = true
@@ -104,6 +110,8 @@ ui_update_input_events :: proc() {
                     k.double_click = true
                     k.last_press = -math.F32_MAX
                 }
+            } else {
+                k.last_press = time
             }
 
             key_changed = true
