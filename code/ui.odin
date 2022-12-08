@@ -13,6 +13,7 @@ UI_State :: struct {
     temp_allocator: mem.Allocator,
 
     font_size: f32,
+    font_atlas: ^Font_Atlas,
     font: ^Font,
 
     // Input
@@ -72,7 +73,9 @@ ui_init :: proc(app: ^App) {
     ui.active = ui.null
 
     ui.font_size = 32.0
-    font_load(&ui.font, app, []string{"fonts/OpenSans-Regular.ttf"}, []i32{30}, []Font_Glyph_Range{font_glyph_range_default(context.temp_allocator)}, false)
+    ui.font_atlas = font_atlas_create()
+    ui.font = font_atlas_add_font_from_ttf(ui.font_atlas, app, "fonts/OpenSans-Regular.ttf", 30.0)
+    font_atlas_build(ui.font_atlas)
     
     ui_init_input()
 }
@@ -401,7 +404,7 @@ ui_end :: proc() {
 		if .DrawText in w.flags {
             anim := .TextAnimation in w.flags ? ui_widget_anim(w, 0.5) : 0.0
             color := anim*Color{1.0, 1.0, 0.0, 1.0}+(1.0-anim)*Color{1, 1, 1, 1}
-			render(ui.font, w.str, ui.font_size, rect_center(w.rect), Text_Render_Options{.Center}, color)
+			render(ui.font, w.str, ui.font_size, rect_center(w.rect), color)
 		}
     })
     
@@ -433,7 +436,7 @@ ui_end :: proc() {
 }
 
 ui_free :: proc() {
-    font_free(&ui.font)
+    font_atlas_free(&ui.font_atlas)
 
     delete(ui.events)
     delete(ui.text)

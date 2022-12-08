@@ -71,7 +71,7 @@ ui_bar :: proc(text: string) -> ^UI_Widget {
     }
     widget.semantic_sizes[.Y] = {
         .Pixels,
-        font_fallback_scaling_factor(ui.font, ui.font_size),
+        ui.font.line_advance,
         0.0,
     }
 
