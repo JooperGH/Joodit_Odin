@@ -278,56 +278,41 @@ render_texture :: proc(texture: ^Texture, rect: Rect, color: Color, roundness: f
     renderer_add_quad(&quad)
 }
 
-render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Text_Render_Options, color: Vec4) -> Rect {
-    result := Rect{pos.x, pos.y, pos.x, pos.y}
-    if !font_validate(font) {
-        return {}
+render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, color: Vec4) {
+    font_atlas := font.container
+
+    if !font_atlas_validate(font_atlas) {
+        return
     }
     
     slot : int = -1
     for i := 0; i < int(gl_renderer.texture_slot); i += 1 {
-        if gl_renderer.texture_data[i] == font.texture.handle {
+        if gl_renderer.texture_data[i] == font_atlas.texture.handle {
             slot = i
             break
         }
     }
     
     if slot == -1 {
-        gl_renderer.texture_data[gl_renderer.texture_slot] = font.texture.handle
+        gl_renderer.texture_data[gl_renderer.texture_slot] = font_atlas.texture.handle
         slot = int(gl_renderer.texture_slot)
         gl_renderer.texture_slot += 1
     }
     
-    first_r := true
-    render_mode : f32 = 2.0
     vertices := [4]Vertex{}
-    cpos := pos + text_rect_options_offset(options, text_dim(font, text, size))
-    
+    cpos := pos
     runes := utf8.string_to_runes(text, context.temp_allocator)
     for r := 0; r < len(runes); r += 1 {
-        rune_a := runes[r]
-        rune_b := ((len(runes) > 1) && (r < len(runes)-2)) ? runes[r+1] : rune(-1)
-        glyph, ok := font.glyphs[rune_a]
-        glyph_b, ok_b := font.glyphs[rune_b]
+        glyph, ok := font.glyphs[runes[r]]
         
         if ok {
-            sf, bl, _, adv := font_glyph_metrics(font, &glyph, size)
-            
             x := math.floor_f32(cpos.x) + glyph.x0
-            y := math.floor_f32(cpos.y) - glyph.y0
+            y := math.floor_f32(cpos.y) + glyph.y0
 
-            eff_dim := sf*Vec2{glyph.x1-glyph.x0, glyph.y0-glyph.y1}
+            eff_dim := Vec2{glyph.x1-glyph.x0, glyph.y1-glyph.y0}
 
             rect := [4]f32{x, y, x+eff_dim.x, y+eff_dim.y}
-            if first_r {
-                result = rect
-                first_r = false
-            } else {
-                result = rect_union(result, rect)
-            }
-
-            width : f32 = 0.7
-            edge : f32 = 0.04
+            
             quad := [4]Vertex{
                 {
                     { -1, -1 },
@@ -335,9 +320,9 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Te
                     color,
                     {},
                     f32(slot),
-                    render_mode,
+                    2.0,
                     rect,
-                    {width, edge, 0, 0},
+                    {},
                 },
                 {
                     { 1, -1 },
@@ -345,9 +330,9 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Te
                     color,
                     {},
                     f32(slot),
-                    render_mode,
+                    2.0,
                     rect,
-                    {width, edge, 0, 0},
+                    {},
                 },
                 {
                     { 1, 1 },
@@ -355,9 +340,9 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Te
                     color,
                     {},
                     f32(slot),
-                    render_mode,
+                    2.0,
                     rect,
-                    {width, edge, 0, 0},
+                    {},
                 },
                 {
                     { -1, 1 },
@@ -365,23 +350,16 @@ render_text :: proc(font: ^Font, text: string, size: f32, pos: Vec2, options: Te
                     color,
                     {},
                     f32(slot),
-                    render_mode,
+                    2.0,
                     rect,
-                    {width, edge, 0, 0},
+                    {},
                 },
             }
             renderer_add_quad(&quad)
 
-            extra : f32 = 0.0
-            if ok && ok_b {
-                extra = font_glyph_kern(font, &glyph, &glyph_b)
-            }
-
-            cpos.x += adv + extra * sf
+            cpos.x += glyph.advance
         }
     }
-
-    return result
 }
 
 renderer_begin :: proc() {
@@ -395,7 +373,7 @@ renderer_end :: proc() {
         return
     }
 
-    proj := la.mat4Ortho3d(0, f32(gl_renderer.app.window_size.x), 0, f32(gl_renderer.app.window_size.y), -1.0, 1.0)
+    proj := la.mat4Ortho3d(0, f32(gl_renderer.app.window_size.x), f32(gl_renderer.app.window_size.y), 0, -1.0, 1.0)
 
     gl.ClearColor(0.1, 0.1, 0.1, 1.0)
     gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
