@@ -391,14 +391,14 @@ calc_text_rect :: proc(font: ^Font, str: string, size: f32, pos: Vec2) -> Rect {
         glyph, ok := font.glyphs[r]
 
         if ok {
-            x := cpos.x + glyph.x0
-            y := cpos.y + glyph.y0
+            x := cpos.x + glyph.x0*scale
+            y := cpos.y + glyph.y0*scale
 
-            eff_dim := Vec2{glyph.x1-glyph.x0, glyph.y1-glyph.y0}
+            eff_dim := scale*Vec2{glyph.x1-glyph.x0, glyph.y1-glyph.y0}
 
             result = rect_union(result, {x, y, x+eff_dim.x, y+eff_dim.y})
         
-            cpos.x += glyph.advance
+            cpos.x += glyph.advance*scale
         }
     }
 

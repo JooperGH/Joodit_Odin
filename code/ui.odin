@@ -45,6 +45,8 @@ UI_State :: struct {
     null: UI_ID,
     hot: UI_ID,
     active: UI_ID,
+
+    dcl: ^Draw_Cmd_List,
 }
 
 ui := UI_State{}
@@ -78,6 +80,8 @@ ui_init :: proc(app: ^App) {
     ui.font.configs[0].oversample_x = 2
     ui.font.configs[0].oversample_y = 2
     font_atlas_build(ui.font_atlas)
+
+    ui.dcl = draw_new_draw_list()
     
     ui_init_input()
 }
@@ -395,12 +399,11 @@ ui_end :: proc() {
                     bg_anim * w.style.colors[.BgGradient0],
                     bg_anim * w.style.colors[.BgGradient1],
                 }
-                render(rect_grow(w.rect, pad_anim_pad), colors, roundness, softness, border_size, border_color)
+                draw_add_rect(ui.dcl, rect_grow(w.rect, pad_anim_pad), roundness, border_size, colors[0], border_color) 
             } else {
                 color := bg_anim * w.style.colors[.Bg]
-                render(rect_grow(w.rect, pad_anim_pad), color, roundness, softness, border_size, border_color)    
+                draw_add_rect(ui.dcl, rect_grow(w.rect, pad_anim_pad), roundness, border_size, color, border_color)
             }
-
 		}
 
 		if .DrawText in w.flags {
@@ -421,7 +424,7 @@ ui_end :: proc() {
                     text_pos.y -= offset.y
                 } 
             }
-			render(ui.font, w.str, ui.font_size, text_pos, color)
+            draw_add_text(ui.dcl, ui.font, w.str, ui.font_size, text_pos, color)
 		}
     })
     
