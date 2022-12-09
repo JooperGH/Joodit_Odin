@@ -12,16 +12,15 @@ layout (location = 6) in vec4 a_rect;
 layout (location = 7) in vec4 a_rect_params;
 
 out vec2 f_tc;
-out vec4 f_color;
-out vec4 f_border_color;
-out vec4 f_rect_params;
 out float f_tex_id;
-out float f_mode;
 
-out vec2 a_pos_vec;
-out vec2 f_pos;
-out vec2 f_center;
-out vec2 f_half_dim;
+flat out vec4 f_color;
+flat out vec2 a_pos_vec;  
+flat out vec4 f_border_color;
+flat out vec4 f_rect_params;
+flat out vec2 f_center;
+flat out float f_mode;
+flat out vec2 f_half_dim;
 
 uniform mat4 u_proj;
 
@@ -34,8 +33,8 @@ void main() {
     f_rect_params = a_rect_params;
     f_half_dim = 0.5*(a_rect.zw - a_rect.xy);
     f_center = a_rect.xy + f_half_dim;
-    f_pos = f_center + f_half_dim*a_pos_vec;
-    gl_Position = u_proj * vec4(f_pos, 0.0, 1.0);
+    vec2 pos = f_center + f_half_dim*a_pos_vec;
+    gl_Position = u_proj * vec4(pos, 0.0, 1.0);
 }
 
 #fragment
@@ -43,22 +42,20 @@ void main() {
 #version 330
 
 in vec2 f_tc;
+
 in vec4 f_color;
 in vec4 f_border_color;
 in float f_tex_id;
 in float f_mode;
-
-in vec2 f_pos;
 in vec2 f_center;
 in vec2 f_half_dim;
 in vec4 f_rect_params;
 
+layout(origin_upper_left) in vec4 gl_FragCoord;
+
 out vec4 o_color;
 
 uniform sampler2D u_textures[32];
-
-const float edge = 0.7;
-const float smoothness = 0.05;
 
 float rounded_rect_sdf(vec2 sample_pos, vec2 center, vec2 half_dim, float r) {
     vec2 d2 = (abs(center - sample_pos) - half_dim + vec2(r, r));
@@ -90,14 +87,14 @@ void main() {
             float radius = f_rect_params.x;
             float softness = f_rect_params.y;
             float border_thickness = f_rect_params.z;
-            vec2 factors = rounded_rect_factor(radius, softness, border_thickness, f_pos, f_center, f_half_dim);
+            vec2 factors = rounded_rect_factor(radius, softness, border_thickness, gl_FragCoord.xy, f_center, f_half_dim);
             o_color = mix(f_color, f_border_color, factors.y) * factors.x;
         } break;
         case 1: {
             float radius = f_rect_params.x;
             float softness = f_rect_params.y;
             float border_thickness = f_rect_params.z;
-            vec2 factors = rounded_rect_factor(radius, softness, border_thickness, f_pos, f_center, f_half_dim);
+            vec2 factors = rounded_rect_factor(radius, softness, border_thickness, gl_FragCoord.xy, f_center, f_half_dim);
             o_color = mix(f_color * texture(u_textures[int(f_tex_id)], f_tc), f_border_color, factors.y) * factors.x;
         } break;
         case 2: {

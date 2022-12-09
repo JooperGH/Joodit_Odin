@@ -118,7 +118,7 @@ ui_update_input_events :: proc() {
         case Mod_Event:
             ui.mods[v.mod_code].down = v.down
         case Mouse_Moved_Event:
-            pos_fixed := Vec2{v.pos.x, ui.window_size.y - v.pos.y}
+            pos_fixed := Vec2{v.pos.x, v.pos.y}
             ui.last_valid_mouse_pos = v.pos
             ui.prev_mouse_pos = ui.mouse_pos
             ui.mouse_pos = pos_fixed

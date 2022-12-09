@@ -29,7 +29,6 @@ editor_layer_on_event :: proc(data: rawptr, app: ^App, e: ^Event) {
 editor_layer_on_update :: proc(data: rawptr, app: ^App) {
 	editor := cast(^Editor_Layer)data
 
-	/*
 	w := ui_bar("Menu Bar")
 	w.style.gradient = false
 
@@ -74,12 +73,21 @@ editor_layer_on_update :: proc(data: rawptr, app: ^App) {
 	ui_push_parent(w)
 	ui_text(format_string("%s###TextInput", utf8.runes_to_string(ui.text[:], ui.temp_allocator)))
 	ui_pop_parent()
-*/
+
 */
 }
 
 editor_layer_on_render :: proc(data: rawptr, app: ^App) {
 	editor := cast(^Editor_Layer)data
 
-	render(ui.font, "So currently we're stuck back at the start pretty much, hi yuna, :smooch:!", 30.0, Vec2{0, 0}, Color{1, 1, 1, 1})
+	/*
+	render(Rect{99, 399, 101, 401}, Color{1, 0, 0, 1})
+	rect := calc_text_rect(ui.font, "Hello", 30.0, Vec2{100, 400})
+	render(rect, Color{0, 0, 0, 1})
+	render(ui.font, "Hello", 30.0, rect.xw, Color{1,1,1,1})
+	render(Rect{99, 399, 101, 401}, Color{1, 0, 0, 1})
+	*/
+
+	//draw_add_text(ui.dcl, ui.font, "Hello world", 30.0, {50, 50}, {1, 1, 1, 1})
+	//draw_add_rect(ui.dcl, {49, 49, 51, 51}, 0.0, 0.0, {1, 0, 0, 1}, {0, 0, 0, 1})
 }

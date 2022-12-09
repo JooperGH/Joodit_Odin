@@ -9,6 +9,7 @@ import "core:slice"
 import "core:mem"
 import "core:strings"
 import "core:math"
+import "core:unicode/utf8"
 
 import stbtt "vendor:stb/truetype"
 
@@ -16,6 +17,7 @@ Font_Info :: stbtt.fontinfo
 
 Font :: struct {
     glyphs: map[rune]Font_Glyph,
+    size: f32,
     baseline: f32,
     ascent, descent: f32,
     line_advance: f32,
@@ -243,13 +245,14 @@ font_atlas_build :: proc(font_atlas: ^Font_Atlas) {
         descent := math.floor_f32(f32(uns_descent) * font_scale + (f32(uns_descent) > 0.0 ? 1.0 : -1.0))
         line_gap := math.floor_f32(f32(uns_line_gap) * font_scale + (f32(uns_line_gap) > 0.0 ? 1.0 : -1.0))
         
+        font.size = cfg.size
         font.ascent = ascent
         font.descent = descent
         font.baseline = ascent
         font.line_advance = ascent - descent + line_gap
 
         font_offset_x := cfg.glyph_offset.x
-        font_offset_y := cfg.glyph_offset.y + math.round(font.baseline)
+        font_offset_y := cfg.glyph_offset.y// + math.round(font.baseline)
         
         font.glyphs = make(map[rune]Font_Glyph, total_glyph_count, context.allocator)
         for gi : i32 = 0; gi < i32(src.glyph_count); gi += 1 {
@@ -372,6 +375,35 @@ font_atlas_push_font_and_config :: proc(font_atlas: ^Font_Atlas, font: ^Font, cf
     if !merge_mode do append(&font_atlas.configs, cfg)
 }
 
-text_dim :: proc(font: ^Font, str: string, size: f32) -> Vec2 {
-    return {}
+calc_text_rect :: proc(font: ^Font, str: string, size: f32, pos: Vec2) -> Rect {
+    font_atlas := font.container
+    if !font_atlas_validate(font_atlas) {
+        return {}
+    }
+
+    result := Rect{pos.x, pos.y, pos.x, pos.y}
+
+    cpos := Vec2{math.floor(pos.x), math.floor(pos.y)}
+    scale := size/font.size
+
+    runes := utf8.string_to_runes(str, context.temp_allocator)
+    for r in runes {
+        glyph, ok := font.glyphs[r]
+
+        if ok {
+            x := cpos.x + glyph.x0*scale
+            y := cpos.y + glyph.y0*scale
+
+            eff_dim := scale*Vec2{glyph.x1-glyph.x0, glyph.y1-glyph.y0}
+
+            result = rect_union(result, {x, y, x+eff_dim.x, y+eff_dim.y})
+        
+            cpos.x += glyph.advance*scale
+        }
+    }
+
+    return result
+}
+calc_text_size :: #force_inline proc(font: ^Font, str: string, size: f32) -> Vec2 {
+    return rect_dim(calc_text_rect(font, str, size, {0, 0}))
 }
