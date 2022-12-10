@@ -55,17 +55,15 @@ draw_init :: proc(app: ^App) {
 
 draw_reset :: proc() {
     for dcl in dc.dcls {
-        mem.free_all(dcl.allocator)
-
         clear(&dcl.cmd_buf)
         clear(&dcl.vtx_buf)
         clear(&dcl.idx_buf)
 
-        assert(len(dcl.clip_rect_stack) == 0)
+        mem.free_all(dcl.allocator)
 
         draw_new_cmd(dcl, dcl.cmd_head.clip_rect)
+        append(&dcl.clip_rect_stack, dcl.cmd_head.clip_rect)
     }
-
 }
 
 draw_new_draw_list :: proc() -> ^Draw_Cmd_List {
@@ -79,9 +77,25 @@ draw_new_draw_list :: proc() -> ^Draw_Cmd_List {
     dcl.clip_rect_stack = make([dynamic]Rect, 0, DRAW_CLIP_RECT_BUFFER_SIZE, context.allocator)
 
     dcl.cmd_head.clip_rect = {0, 0, dc.app.window_size.x, dc.app.window_size.y}
-    
+
     append(&dc.dcls, dcl)
     return dcl
+}
+
+@private
+draw_get_cmd :: proc(dcl: ^Draw_Cmd_List) -> ^Draw_Cmd {
+    cmd := &dcl.cmd_buf[len(dcl.cmd_buf)-1]
+
+    if dcl.clip_rect_stack[len(dcl.clip_rect_stack)-1] != dcl.cmd_head.clip_rect {
+        dcl.cmd_head.clip_rect = dcl.clip_rect_stack[len(dcl.clip_rect_stack)-1]
+        draw_new_cmd(dcl, dcl.cmd_head.clip_rect)
+        cmd = &dcl.cmd_buf[len(dcl.cmd_buf)-1]
+    } else if len(cmd.textures) == cap(cmd.textures) {
+        draw_new_cmd(dcl, cmd.clip_rect)
+        cmd = &dcl.cmd_buf[len(dcl.cmd_buf)-1]
+    }
+
+    return cmd
 }
 
 @private
@@ -112,6 +126,7 @@ draw_reserve :: proc(dcl: ^Draw_Cmd_List, vtx_count, idx_count: u32) -> ([]Draw_
     return vtx_buf, idx_buf
 }
 
+@private
 draw_add_idx :: #force_inline proc(idx: []Draw_Idx, dcl_idx_count: int) {
     nis := 4*(dcl_idx_count/6-1)
     idx[0] = u32(nis + 0)
@@ -122,6 +137,7 @@ draw_add_idx :: #force_inline proc(idx: []Draw_Idx, dcl_idx_count: int) {
     idx[5] = u32(nis + 0)
 }
 
+@private
 draw_add_vtx :: #force_inline proc(vtx: ^Draw_Vtx, pos_vec: Vec2, tex_coord: Vec2, color, border_color: Color, tex_id: f32, mode: f32, rect: Rect, roundness: f32, border_thickness: f32) {
     vtx.pos_vec = pos_vec
     vtx.tex_coord = tex_coord
@@ -133,6 +149,7 @@ draw_add_vtx :: #force_inline proc(vtx: ^Draw_Vtx, pos_vec: Vec2, tex_coord: Vec
     vtx.rect_params = {roundness, 1.0, border_thickness, 0.0}
 }
 
+@private
 draw_add_tex :: proc(dcl: ^Draw_Cmd_List, tex: ^Texture) -> i32 {
     if !texture_validate(tex) do return -1
 
@@ -155,26 +172,30 @@ draw_add_tex :: proc(dcl: ^Draw_Cmd_List, tex: ^Texture) -> i32 {
     return index
 }
 
-draw_get_cmd :: proc(dcl: ^Draw_Cmd_List) -> ^Draw_Cmd {
-    cmd := &dcl.cmd_buf[len(dcl.cmd_buf)-1]
-
-    if len(cmd.textures) == cap(cmd.textures) {
-        draw_new_cmd(dcl, cmd.clip_rect)
-        cmd = &dcl.cmd_buf[len(dcl.cmd_buf)-1]
-    }
-
-    return cmd
+@private
+draw_get_clip_rect_unsafe :: proc(dcl: ^Draw_Cmd_List) -> Rect {
+    return dcl.cmd_buf[len(dcl.cmd_buf)-1].clip_rect
 }
 
-draw_add_rect :: proc(dcl: ^Draw_Cmd_List, rect: Rect, rounding, border_thickness: f32, color, border_color: Color) {
-    if color.a == 0.0 && border_color.a == 0.0 do return
+draw_push_clip_rect :: proc(dcl: ^Draw_Cmd_List, clip_rect: Rect) {
+    append(&dcl.clip_rect_stack, clip_rect)
+}
 
+draw_pop_clip_rect :: proc(dcl: ^Draw_Cmd_List) {
+    assert(len(dcl.clip_rect_stack) > 0)
+    pop(&dcl.clip_rect_stack)
+}
+
+draw_add_rect :: proc(dcl: ^Draw_Cmd_List, rect: Rect, rounding, border_thickness: f32, color, border_color: [4]Color) {
+    if color.a == 0.0 && border_color.a == 0.0 do return    
+    if !rect_overlaps(draw_get_clip_rect_unsafe(dcl), rect) do return
+    
     vtxs, idxs := draw_reserve(dcl, 4, 6)
     draw_add_idx(idxs, len(dcl.idx_buf))
-    draw_add_vtx(&vtxs[0], {-1, -1}, {0, 0}, color, border_color, 0, 0.0, rect, rounding, border_thickness)
-    draw_add_vtx(&vtxs[1], {1, -1}, {1, 0}, color, border_color, 0, 0.0, rect, rounding, border_thickness)
-    draw_add_vtx(&vtxs[2], {1, 1}, {1, 1}, color, border_color, 0, 0.0, rect, rounding, border_thickness)
-    draw_add_vtx(&vtxs[3], {-1, 1}, {0, 1}, color, border_color, 0, 0.0, rect, rounding, border_thickness)
+    draw_add_vtx(&vtxs[0], {-1, -1}, {0, 0}, color[0], border_color[0], 0, 0.0, rect, rounding, border_thickness)
+    draw_add_vtx(&vtxs[1], {1, -1}, {1, 0}, color[1], border_color[1], 0, 0.0, rect, rounding, border_thickness)
+    draw_add_vtx(&vtxs[2], {1, 1}, {1, 1}, color[2], border_color[2], 0, 0.0, rect, rounding, border_thickness)
+    draw_add_vtx(&vtxs[3], {-1, 1}, {0, 1}, color[3], border_color[3], 0, 0.0, rect, rounding, border_thickness)
 }
 
 draw_add_text :: proc(dcl: ^Draw_Cmd_List, font: ^Font, text: string, size: f32, pos: Vec2, color: Color) {
@@ -182,6 +203,8 @@ draw_add_text :: proc(dcl: ^Draw_Cmd_List, font: ^Font, text: string, size: f32,
     if !font_atlas_validate(font.container) do return
 
     tex_idx := f32(draw_add_tex(dcl, font.container.texture))
+
+    clip_rect := draw_get_clip_rect_unsafe(dcl)
 
     cpos := pos
     scale := size/font.size
@@ -196,6 +219,8 @@ draw_add_text :: proc(dcl: ^Draw_Cmd_List, font: ^Font, text: string, size: f32,
                 cpos.x + glyph.x1*scale,
                 cpos.y + glyph.y1*scale,
             }
+
+            if !rect_overlaps(clip_rect, rect) do continue
 
             vtxs, idxs := draw_reserve(dcl, 4, 6)
             draw_add_idx(idxs, len(dcl.idx_buf))

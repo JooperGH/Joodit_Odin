@@ -82,3 +82,6 @@ rect_from_pos_dim :: #force_inline proc(a: Vec2, b: Vec2) -> Rect {
     return {a.x, a.y, a.x + b.x, a.y + b.y}
 }
 
+rect_overlaps :: #force_inline proc(a: Rect, b: Rect) -> b32 {
+    return !(a.x > b.z || a.z < b.x || a.y > b.w || a.w < b.y)
+}

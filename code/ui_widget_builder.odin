@@ -230,13 +230,13 @@ ui_widget :: proc(flags: UI_Widget_Flags, str: string) -> ^UI_Widget {
     widget.style = ui_style_default()
     widget.semantic_sizes[.X] = {
         .DrawText in widget.flags ? UI_Size_Kind.TextContent : UI_Size_Kind.PercentOfParent,
-        0.2,
-        0.05,
+        1.2,
+        0.0,
     }
     widget.semantic_sizes[.Y] = {
         .DrawText in widget.flags ? UI_Size_Kind.TextContent : UI_Size_Kind.PercentOfParent,
-        0.05,
-        0.01,
+        1.2,
+        0.0,
     }
     return widget
 }

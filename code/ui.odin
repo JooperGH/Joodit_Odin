@@ -167,13 +167,13 @@ ui_end :: proc() {
         if ui_size_is_kind(w, UI_Axis.X, UI_Size_Kind.Pixels) {
             w.size.x = w.semantic_sizes[.X].value
         } else if ui_size_is_kind(w, UI_Axis.X, UI_Size_Kind.TextContent) {
-            w.size.x = text_content_dim.x
+            w.size.x = text_content_dim.x*w.semantic_sizes[.X].value
         }
         
         if ui_size_is_kind(w, UI_Axis.Y, UI_Size_Kind.Pixels) {
             w.size.y = w.semantic_sizes[.Y].value
         } else if ui_size_is_kind(w, UI_Axis.Y, UI_Size_Kind.TextContent) {
-            w.size.y = text_content_dim.y
+            w.size.y = text_content_dim.y*w.semantic_sizes[.Y].value
         }
     })
     
@@ -231,36 +231,39 @@ ui_end :: proc() {
     // FillX, FillY Loop
     ui_widget_descending_loop(ui.root, cast(rawptr)&layout, proc(w: ^UI_Widget, data: rawptr) {
         layout := cast(^UI_Layout)data
-
+        
         if w.first != nil {
             parent_pad := ui_widget_calc_pad(w)
 
+            no_fill_y_sizes := make([dynamic]f32, ui.temp_allocator)
+            no_fill_x_sizes := make([dynamic]f32, ui.temp_allocator)
+             
             total_size_x, total_size_y: f32 = 0, 0
             sentinel := w.first
             for sentinel != nil {
                 if .FillY not_in sentinel.flags {
                     total_size_x += sentinel.size.x + parent_pad.x
-                } else {
-                    total_size_x = max(total_size_x, sentinel.size.x + parent_pad.x)
+                } else if !(ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.LeftoverChildSum) && ui_match_null(sentinel)) {
+                    append(&no_fill_x_sizes, sentinel.size.x + parent_pad.x)
                 }
 
                 if .FillX not_in sentinel.flags {
                     total_size_y += sentinel.size.y + parent_pad.y
-                } else {
-                    total_size_y = max(total_size_y, sentinel.size.y + parent_pad.y)
+                } else if !(ui_size_is_kind(sentinel, UI_Axis.Y, UI_Size_Kind.LeftoverChildSum) && ui_match_null(sentinel)) {
+                    append(&no_fill_y_sizes, sentinel.size.y + parent_pad.y)
                 }
 
                 sentinel = sentinel.next
             }
 
-            if total_size_y > w.size.y {
+            if total_size_y > w.size.y || len(no_fill_y_sizes) > 0 {
                 // Fix x sizes
                 // Priority is removing size from spacers
 
-                required_size_reduction := total_size_y - w.size.y + parent_pad.y
+                required_size_reduction := total_size_y - w.size.y
 
-                total_percent_of_parent_count: i32 = 0
-                total_percent_of_parent_size_y: f32 = 0.0
+                total_other_count: i32 = 0
+                total_other_size_y: f32 = 0.0
                 total_spacer_count: i32 = 0
                 total_spacer_size_y: f32 = 0.0
                 sentinel = w.first
@@ -268,10 +271,9 @@ ui_end :: proc() {
                     if ui_size_is_kind(sentinel, UI_Axis.Y, UI_Size_Kind.LeftoverChildSum) && ui_match_null(sentinel) {
                         total_spacer_size_y += sentinel.size.y
                         total_spacer_count += 1
-                    }
-                    if ui_size_is_kind(sentinel, UI_Axis.Y, UI_Size_Kind.PercentOfParent) {
-                        total_percent_of_parent_size_y += sentinel.size.y
-                        total_percent_of_parent_count += 1
+                    } else {
+                        total_other_size_y += sentinel.size.y
+                        total_other_count += 1
                     }
                     sentinel = sentinel.next
                 }
@@ -288,44 +290,46 @@ ui_end :: proc() {
                         }
                     }
                 } else {
-                    if total_percent_of_parent_count > 0 {
+                    if total_other_count > 0 {
                         sentinel = w.first
+                        k := 0
                         for sentinel != nil {
-                            if ui_size_is_kind(sentinel, UI_Axis.Y, UI_Size_Kind.PercentOfParent) {
-                                sentinel.size.y -= required_size_reduction/f32(total_percent_of_parent_count)
+                            if .FillY not_in sentinel.flags {
+                                sentinel.size.y -= no_fill_y_sizes[k] - w.size.y
+                                k += 1
+                            } else {
+                                sentinel.size.y -= required_size_reduction/f32(total_other_count)
                             }
                             sentinel = sentinel.next
                         }
                     }
                 }
             }
-
-            if total_size_x > w.size.x {
+            
+            if total_size_x > w.size.x || len(no_fill_x_sizes) > 0 {
                 // Fix x sizes
                 // Priority is removing size from spacers
     
-                required_size_reduction := total_size_x - w.size.x + parent_pad.x
+                required_size_reduction := total_size_x - w.size.x// + parent_pad.x
     
-                total_percent_of_parent_count: i32 = 0
-                total_percent_of_parent_size_x: f32 = 0.0
+                total_other_count: i32 = 0
+                total_other_size_x: f32 = 0.0
                 total_spacer_count: i32 = 0
                 total_spacer_size_x: f32 = 0.0
                 sentinel = w.first
                 for sentinel != nil {
-                    if ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.LeftoverChildSum) && ui_match_null(sentinel) {
+                    if  ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.LeftoverChildSum) && ui_match_null(sentinel) {
                         total_spacer_size_x += sentinel.size.x
                         total_spacer_count += 1
-                    }
-                    if ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.PercentOfParent) {
-                        total_percent_of_parent_size_x += sentinel.size.x
-                        total_percent_of_parent_count += 1
+                    } else {
+                        total_other_size_x += sentinel.size.x
+                        total_other_count += 1
                     }
                     sentinel = sentinel.next
                 }
     
                 if total_spacer_count > 0 {
                     if total_spacer_size_x >= required_size_reduction {
-                        
                         sentinel = w.first
                         for sentinel != nil {
                             if ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.LeftoverChildSum) && ui_match_null(sentinel) {
@@ -335,11 +339,15 @@ ui_end :: proc() {
                         }
                     }
                 } else {
-                    if total_percent_of_parent_count > 0 {
+                    if total_other_count > 0 {
                         sentinel = w.first
+                        k := 0
                         for sentinel != nil {
-                            if ui_size_is_kind(sentinel, UI_Axis.X, UI_Size_Kind.PercentOfParent) {
-                                sentinel.size.x -= required_size_reduction/f32(total_percent_of_parent_count)
+                            if .FillX not_in sentinel.flags {
+                                sentinel.size.x -= no_fill_x_sizes[k] - w.size.x
+                                k += 1
+                            } else {
+                                sentinel.size.x -= required_size_reduction/f32(total_other_count)
                             }
                             sentinel = sentinel.next
                         }
@@ -399,7 +407,7 @@ ui_end :: proc() {
                     bg_anim * w.style.colors[.BgGradient0],
                     bg_anim * w.style.colors[.BgGradient1],
                 }
-                draw_add_rect(ui.dcl, rect_grow(w.rect, pad_anim_pad), roundness, border_size, colors[0], border_color) 
+                draw_add_rect(ui.dcl, rect_grow(w.rect, pad_anim_pad), roundness, border_size, {colors[0], colors[0], colors[1], colors[1]}, border_color) 
             } else {
                 color := bg_anim * w.style.colors[.Bg]
                 draw_add_rect(ui.dcl, rect_grow(w.rect, pad_anim_pad), roundness, border_size, color, border_color)
