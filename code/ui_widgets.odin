@@ -21,8 +21,6 @@ ui_slider_f32 :: proc(text: string, value: ^f32, min: f32, max: f32) -> ^UI_Widg
 
     ui_push_parent(widget)
 
-
-
     ui_pop_parent()
     
     return widget
@@ -44,7 +42,7 @@ ui_button :: proc(text: string) -> ^UI_Widget {
     }
     widget.semantic_sizes[.Y] = {
         .PercentOfParent,
-        1.0,
+        1.05,
         0.0,
     }
     return widget
@@ -92,18 +90,17 @@ ui_panel :: proc(text: string) -> ^UI_Widget {
                         text)
                             
     widget.semantic_sizes[.X] = {
-        .PercentOfParent,
+        .LeftoverChildSum,
         1.0,
         0.0,
     }
     widget.semantic_sizes[.Y] = {
-        .PercentOfParent,
+        .LeftoverChildSum,
         1.0,
         0.0,
     }
 
     widget.style.gradient = false
-    widget.style.colors[.Border] = {1.0, 1.0, 0.0, 1.0}
 
     return widget
 }

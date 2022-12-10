@@ -37,10 +37,6 @@ Renderer :: struct {
     index_data_cap: u32,
     vertex_data_cap: u32,
 
-    cached_texture_slot: u32,
-    texture_slot: u32,
-    texture_data: []u32,
-    
     shader: ^Shader,
 
     dc: Draw,
@@ -53,10 +49,6 @@ renderer_init :: proc(app: ^App) {
     gl_renderer.index_data_cap = max_quads*6
     gl_renderer.vertex_data_cap = max_quads*4
     
-    gl_renderer.cached_texture_slot = 0
-    gl_renderer.texture_slot = 0
-    gl_renderer.texture_data = make([]u32, 32)
-
     gl.GenVertexArrays(1, &gl_renderer.vao)
     gl.BindVertexArray(gl_renderer.vao)
     gl.GenBuffers(1, &gl_renderer.vbo)
@@ -103,8 +95,6 @@ renderer_free :: proc() {
     gl.DeleteBuffers(1, &gl_renderer.vbo)
     gl.DeleteBuffers(1, &gl_renderer.ibo)
 
-    delete(gl_renderer.texture_data)
-
     shader_free(&gl_renderer.shader)
 }
 
@@ -136,8 +126,17 @@ renderer_process_draw_list_data :: proc() {
     for dcl in dc.dcls {
         for cmd_i : u32 = 0; cmd_i < u32(len(dcl.cmd_buf)); cmd_i += 1{
             cmd := &dcl.cmd_buf[cmd_i]
+            if cmd.idx_count == 0 do continue
             
-            // Do clip rect
+            gl.Enable(gl.SCISSOR_TEST)
+            clip_w := cmd.clip_rect.z - cmd.clip_rect.x
+            clip_h := cmd.clip_rect.w - cmd.clip_rect.y
+            clip_x := cmd.clip_rect.x
+            clip_y := dc.app.window_size.y - clip_h - cmd.clip_rect.y
+            gl.Scissor( i32(clip_x),
+                        i32(clip_y),
+                        i32(clip_w),
+                        i32(clip_h))
 
             // Do textures
             for tex, i in cmd.textures {
@@ -154,7 +153,15 @@ renderer_process_draw_list_data :: proc() {
                              0,
                              size_of(u32)*int(cmd.idx_count),
                              cast(rawptr)&dcl.idx_buf[cmd.idx_off])
+                             
+            // Do clip rect
+            
+
             gl.DrawElements(gl.TRIANGLES, i32(cmd.idx_count), gl.UNSIGNED_INT, nil)
+            gl.Disable(gl.SCISSOR_TEST)
         }
+
+        pop(&dcl.clip_rect_stack)
+        assert(len(dcl.clip_rect_stack) == 0)
     }
 }
