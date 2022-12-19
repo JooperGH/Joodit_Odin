@@ -43,7 +43,6 @@ ui_init_input :: proc() {
     ui.mouse_pos = {-math.F32_MAX, -math.F32_MAX}
     ui.mouse_dpos = {0.0, 0.0}
     ui.scroll_pos = {0.0, 0.0}
-    ui.focused = true
 
     ui.events = make([dynamic]^Event, 0, 128)
     ui.text = make([dynamic]rune, 0, 128)
