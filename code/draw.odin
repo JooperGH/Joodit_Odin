@@ -61,6 +61,8 @@ draw_reset :: proc() {
 
         mem.free_all(dcl.allocator)
 
+        dcl.cmd_head.clip_rect = {0, 0, dc.app.window_size.x, dc.app.window_size.y}
+
         draw_new_cmd(dcl, dcl.cmd_head.clip_rect)
         append(&dcl.clip_rect_stack, dcl.cmd_head.clip_rect)
     }

@@ -130,19 +130,6 @@ ui_update_input_events :: proc() {
             append(&ui.text, v.c)
         case Window_Resized_Event:
             ui.window_size = v.size
-
-            if ui.root != nil {
-                ui.root.semantic_sizes[.X] = {
-                    .PercentOfParent,
-                    1.0,
-                    0.0,
-                }
-                ui.root.semantic_sizes[.Y] = {
-                    .PercentOfParent,
-                    1.0,
-                    0.0,
-                }
-            }
         }
         
     }

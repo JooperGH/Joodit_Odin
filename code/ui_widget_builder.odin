@@ -5,6 +5,7 @@ import "core:strings"
 import "core:hash"
 import "core:fmt"
 import "core:math"
+import "core:mem"
 
 UI_Widget_Interaction :: struct {
     widget: ^UI_Widget,
@@ -27,17 +28,14 @@ UI_Widget_Interaction :: struct {
 
 UI_Widget_Flag :: enum {
     Ignore,
-    FillX,
-    FillY,
-    PadX,
-    PadY,
-    CenterX,
-    CenterY,
+    AxisToggle,
+    TextCenterX,
+    TextCenterY,
     Clickable,
     Draggable,
+    DrawBackground,
     DrawBorder,
     DrawText,
-    DrawBackground,
     TextAnimation,
     HotAnimation,
     ActiveAnimation,
@@ -61,14 +59,13 @@ UI_Widget :: struct {
 
     style: UI_Style,
     
-    semantic_sizes: [UI_Axis]UI_Size,
-    pos: Vec2,
-    size: Vec2,
+    size: [UI_Axis]UI_Size,
+    calc_size: Vec2,
     rect: Rect,
-    available_rect: Rect,
     offset: Vec2,
-    dragging: b32,
+    layout: ^UI_Layout,
 
+    dragging: b32,
     hot_t: f32,
     active_t: f32,
 
@@ -84,24 +81,24 @@ ui_match_id :: #force_inline proc(a, b: UI_ID) -> b32 {
 }
 
 ui_match_null :: #force_inline proc(widget: ^UI_Widget) -> b32 {
-    return widget.id == ui.null
+    return widget.id == ui.widgets.id_null
 }
 
 ui_match_hot :: #force_inline proc(widget: ^UI_Widget) -> b32 {
-    return widget.id == ui.hot
+    return widget.id == ui.widgets.id_hot
 }
 
 ui_match_active :: #force_inline proc(widget: ^UI_Widget) -> b32 {
-    return widget.id == ui.active
+    return widget.id == ui.widgets.id_active
 }
 
 ui_set_as_hot :: #force_inline proc(widget: ^UI_Widget) {
-    ui.hot = widget.id    
+    ui.widgets.id_hot = widget.id    
     widget.hot_t = 1.0
 }
 
 ui_set_as_active :: #force_inline proc(widget: ^UI_Widget) {
-    ui.active = widget.id    
+    ui.widgets.id_active = widget.id    
     widget.active_t = 1.0  
 }
 
@@ -125,67 +122,63 @@ ui_get_id :: proc(name: string) -> (id: UI_ID, name_clean: string) {
 }
 
 ui_push_parent :: proc(widget: ^UI_Widget) {
-    append(&ui.parent_stack, widget)
+    append(&ui.widgets.parents, widget)
 }
 
 ui_pop_parent :: proc() {
-    assert(len(ui.parent_stack) > 0)
-    pop(&ui.parent_stack)
+    assert(len(ui.widgets.parents) > 0)
+    pop(&ui.widgets.parents)
 }
 
 ui_push_flags :: proc(flags_add: UI_Widget_Flags, flags_rem: UI_Widget_Flags = {}) {
-    append(&ui.flag_add_stack, flags_add)
-    append(&ui.flag_rem_stack, flags_rem)
+    append(&ui.widgets.fl_adds, flags_add)
+    append(&ui.widgets.fl_rems, flags_rem)
 }
 
 ui_pop_flags :: proc() {
-    assert(len(ui.flag_add_stack) > 0)
-    assert(len(ui.flag_rem_stack) > 0)
-    pop(&ui.flag_add_stack)
-    pop(&ui.flag_rem_stack)
+    assert(len(ui.widgets.fl_adds) > 0)
+    assert(len(ui.widgets.fl_rems) > 0)
+    pop(&ui.widgets.fl_adds)
+    pop(&ui.widgets.fl_rems)
+}
+
+ui_widget_alloc :: proc(id: UI_ID, str: string, allocator: mem.Allocator) -> ^UI_Widget {
+    widget := new(UI_Widget, allocator)
+    widget.id = id
+    widget.str = str
+    return widget
 }
 
 ui_widget_get :: proc(str: string) -> ^UI_Widget {
     id, name := ui_get_id(str)
 
-    if id == ui.null {
-        widget := new(UI_Widget, ui.temp_allocator)
-        widget.id = id
-        widget.str = name
-        return widget
+    if id == ui.widgets.id_null {
+        return ui_widget_alloc(id, str, ui.temp_allocator)
     }
 
-    widget := &ui.hash[(cast(u32)id % u32(len(ui.hash)-1))]
-    if !ui_match_null(widget) && widget.id != id {
-        sentinel := widget
-        last_non_nil_sentinel := sentinel
-
-        for sentinel != nil {
-            if sentinel.id == id {
-                widget = sentinel
-                break
-            }
-
-            if sentinel.hash_next == nil do last_non_nil_sentinel = sentinel
-            sentinel = sentinel.hash_next
-        }
-
-        if sentinel == nil {
-            widget = new(UI_Widget, ui.allocator)
-            widget.id = id
-            widget.str = name
-            last_non_nil_sentinel.hash_next = widget
-        }
+    widget, ok := ui.widgets.all[id]
+    if !ok {
+        widget = ui_widget_alloc(id, str, ui.allocator)
+        ui.widgets.all[id] = widget
     }
-
-    widget.id = id
-    widget.str = name
-
+    
     return widget
 }
 
 ui_widget_build_hierarchy :: proc(widget: ^UI_Widget) {
-    widget.parent = len(ui.parent_stack) > 0 ? slice.last(ui.parent_stack[:]) : nil 
+    if ui.widgets.first == nil {
+        widget.hash_prev = nil
+        widget.hash_next = nil
+        ui.widgets.first = widget
+        ui.widgets.last = widget
+    } else {
+        widget.hash_next = nil
+        widget.hash_prev = ui.widgets.last
+        ui.widgets.last.hash_next = widget
+        ui.widgets.last = widget
+    }
+
+    widget.parent = len(ui.widgets.parents) > 0 ? slice.last(ui.widgets.parents[:]) : nil 
     if widget.parent != nil {
         if widget.parent.first == nil {
             widget.parent.first = widget
@@ -205,39 +198,22 @@ ui_widget_create :: proc(str: string) -> ^UI_Widget {
     return widget
 }
 
-ui_widget_create_root :: proc(str: string) -> ^UI_Widget {
-    widget := ui_widget_create(str)
-    widget.flags = {.Ignore, .PadX, .PadY,}
-    widget.style = ui_style_default()
-    widget.semantic_sizes[.X] = {
-        .PercentOfParent,
-        1.0,
-        0.0,
-    }
-    widget.semantic_sizes[.Y] = {
-        .PercentOfParent,
-        1.0,
-        0.0,
-    }
-    return widget
+ui_widget_flags :: proc(flags: UI_Widget_Flags) -> UI_Widget_Flags {
+    return flags + (len(ui.widgets.fl_adds) > 0 ? slice.last(ui.widgets.fl_adds[:]) : {}) - (len(ui.widgets.fl_rems) > 0 ? slice.last(ui.widgets.fl_rems[:]) : {})
+}
+
+ui_widget_size :: #force_inline proc(kind: UI_Size_Kind, value: f32 = 1.0) -> UI_Size {
+    return {kind, value}
 }
 
 ui_widget :: proc(flags: UI_Widget_Flags, str: string) -> ^UI_Widget {
     widget := ui_widget_create(str)
     if widget == nil do return widget
     
-    widget.flags = flags + (len(ui.flag_add_stack) > 0 ? slice.last(ui.flag_add_stack[:]) : {}) - (len(ui.flag_rem_stack) > 0 ? slice.last(ui.flag_rem_stack[:]) : {})
-    widget.style = ui_style_default()
-    widget.semantic_sizes[.X] = {
-        .DrawText in widget.flags ? UI_Size_Kind.TextContent : UI_Size_Kind.PercentOfParent,
-        1.2,
-        0.0,
-    }
-    widget.semantic_sizes[.Y] = {
-        .DrawText in widget.flags ? UI_Size_Kind.TextContent : UI_Size_Kind.PercentOfParent,
-        1.2,
-        0.0,
-    }
+    widget.flags = ui_widget_flags(flags)
+    widget.style = ui_widget_style_default()
+    widget.size[.X] = ui_widget_size(.Pixels, 100.0)
+    widget.size[.Y] = ui_widget_size(.Pixels, 100.0)
     return widget
 }
 

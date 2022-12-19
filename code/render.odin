@@ -108,6 +108,7 @@ renderer_end :: proc() {
         return
     }
 
+    gl.Viewport(0, 0, i32(gl_renderer.app.window_size.x), i32(gl_renderer.app.window_size.y))
     gl.ClearColor(0.1, 0.1, 0.1, 1.0)
     gl.Clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT)
 

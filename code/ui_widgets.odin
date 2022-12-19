@@ -3,20 +3,80 @@ package main
 import "core:log"
 import "core:math"
 
+ui_box :: proc(str: string, x, y: UI_Size) -> ^UI_Widget {
+    widget := ui_widget(
+        {
+            .DrawBackground, 
+        }, str)
+    widget.size[.X] = x
+    widget.size[.Y] = y
+    return widget
+}
+
+ui_button :: proc(str: string, y: UI_Size = {.Text, 1.5}, x: UI_Size = {.Text, 1.3}) -> ^UI_Widget {
+    widget := ui_widget(
+        {
+            .Clickable, 
+            .DrawBackground, 
+            .DrawBorder, 
+            .DrawText, 
+            .TextCenterX,
+            .TextCenterY,
+            .HotAnimation, 
+            .ActiveAnimation,
+        }, str)
+    widget.hot_condition = proc(w: ^UI_Widget) -> b32 {
+        return w.i.hovered
+    }
+    widget.active_condition = proc(w: ^UI_Widget) -> b32 {
+        return w.i.left_down
+    }
+    widget.size[.X] = x
+    widget.size[.Y] = y
+    return widget
+}
+
+ui_widget_is_spacer :: #force_inline proc(w: ^UI_Widget) -> b32 {
+    return ui_match_null(w) && (.AxisToggle not_in w.flags)
+}
+
+ui_widget_is_row ::  #force_inline proc(w: ^UI_Widget) -> b32 {
+    return ui_match_null(w) && (.AxisToggle in w.flags)
+}
+
+ui_spacer :: proc(space: f32) {
+    spacer := ui_widget({.Ignore}, "")
+    spacer.size[.X] = ui_widget_size(.Pixels, space)
+    spacer.size[.Y] = ui_widget_size(.Pixels, space)
+}
+
+ui_auto_spacer :: proc() {
+    spacer := ui_widget({.Ignore}, "")
+    spacer.size[.X] = ui_widget_size(.Auto)
+    spacer.size[.Y] = ui_widget_size(.Auto)
+}
+
+ui_row_begin :: proc() {
+    ui_widget({.Ignore, .AxisToggle}, "")
+}
+
+ui_row_end :: proc() {
+    ui_widget({.Ignore, .AxisToggle}, "")
+}
+
+/*
 ui_slider_f32 :: proc(text: string, value: ^f32, min: f32, max: f32) -> ^UI_Widget {
     widget := ui_widget({.DrawBackground,
                         .DrawBorder,
                         .FillY},
                         text)
-    widget.semantic_sizes[.X] = {
-        .LeftoverChildSum,
+    widget.size[.X] = {
+        .MinSibling,
         0.5,
-        0.9,
     }
-    widget.semantic_sizes[.Y] = {
-        .PercentOfParent,
+    widget.size[.Y] = {
+        .PercentParent,
         1.0,
-        0.0,
     }
 
     ui_push_parent(widget)
@@ -40,10 +100,9 @@ ui_button :: proc(text: string) -> ^UI_Widget {
     widget.active_condition = proc(w: ^UI_Widget) -> b32 {
         return w.i.left_clicked
     }
-    widget.semantic_sizes[.Y] = {
-        .PercentOfParent,
-        1.05,
-        0.0,
+    widget.size[.Y] = {
+        .Pixels,
+        ui.font.line_advance,
     }
     return widget
 }
@@ -55,7 +114,7 @@ ui_text :: proc(text: string) -> ^UI_Widget {
                         .ActiveAnimation,
                         .FillY},
                         text)
-
+    
     return widget
 }
 
@@ -69,15 +128,28 @@ ui_bar :: proc(text: string) -> ^UI_Widget {
         return w.i.left_down
     }
 
-    widget.semantic_sizes[.X] = {
-        .PercentOfParent,
+    widget.size[.X] = {
+        .PercentParent,
         1.0,
-        0.0,
     }
-    widget.semantic_sizes[.Y] = {
-        .Pixels,
-        ui.font.line_advance,
-        0.0,
+    widget.size[.Y] = {
+        .MaxChildren,
+        1.0,
+    }
+
+    return widget
+}
+
+ui_panel_space :: proc(text: string) -> ^UI_Widget {
+    widget := ui_widget({.FillY},
+                        text)
+    widget.size[.X] = {
+        .MinSibling,
+        1.0,
+    }
+    widget.size[.Y] = {
+        .MinSibling,
+        1.0,
     }
 
     return widget
@@ -89,15 +161,13 @@ ui_panel :: proc(text: string) -> ^UI_Widget {
                         .FillY},
                         text)
                             
-    widget.semantic_sizes[.X] = {
-        .LeftoverChildSum,
+    widget.size[.X] = {
+        .MinSibling,
         1.0,
-        0.0,
     }
-    widget.semantic_sizes[.Y] = {
-        .LeftoverChildSum,
+    widget.size[.Y] = {
+        .MinSibling,
         1.0,
-        0.0,
     }
 
     widget.style.gradient = false
@@ -105,18 +175,16 @@ ui_panel :: proc(text: string) -> ^UI_Widget {
     return widget
 }
 
-ui_spacer :: proc(free_space_ratio: f32 = 0.0, threshold: f32 = 0.9) {
+ui_spacer :: proc(space: Vec2) {
     w := ui_widget({.Ignore}, "")
     assert(!(.FillX in w.flags && .FillY in w.flags))
     if .FillX in w.flags {
-        w.semantic_sizes[.X].kind = .LeftoverChildSum
-        w.semantic_sizes[.X].value = free_space_ratio
-        w.semantic_sizes[.X].threshold = threshold
-    }
+        w.size[.X].kind = .Pixels
+        w.size[.X].value = space.x
+        }
     if .FillY in w.flags {
-        w.semantic_sizes[.Y].kind = .LeftoverChildSum
-        w.semantic_sizes[.Y].value = free_space_ratio
-        w.semantic_sizes[.Y].threshold = threshold
+        w.size[.Y].kind = .Pixels
+        w.size[.Y].value = space.y
     }
 }
 
@@ -127,3 +195,4 @@ ui_begin_row :: proc() {
 ui_end_row :: proc() {
     ui_pop_flags()
 }
+*/

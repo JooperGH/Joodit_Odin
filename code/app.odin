@@ -58,7 +58,7 @@ app_init :: proc(app: ^App, title: string, width: i32 = 1280, height: i32 = 720)
     app.monitor = glfw.GetPrimaryMonitor()
     video_mode := glfw.GetVideoMode(app.monitor)
     glfw.WindowHint(glfw.DECORATED, 0)
-	app.window = glfw.CreateWindow(width, height, strings.clone_to_cstring(app.title, context.temp_allocator), nil, nil)
+    app.window = glfw.CreateWindow(width, height, strings.clone_to_cstring(app.title, context.temp_allocator), nil, nil)
     if app.window == nil {
 		log.error("Failed to create window.")
 		return
@@ -248,7 +248,8 @@ on_window_resized :: proc(data: rawptr, app: ^App, e: ^Event) -> b32 {
     if ok {
         app.window_size.x = be.size.x
         app.window_size.y = be.size.y
-        gl.Viewport(0, 0, i32(app.window_size.x), i32(app.window_size.y))
+        ui.window_size.x = be.size.x
+        ui.window_size.y = be.size.y
     }
     return true
 }
